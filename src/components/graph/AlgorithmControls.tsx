@@ -8,16 +8,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, RotateCcw, Zap, StepForward, FastForward, Shuffle } from 'lucide-react';
+import { Play, Pause, RotateCcw, Zap, StepForward, Shuffle, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContextualHelpDialog } from '@/components/ai/ContextualHelpDialog';
 import type { AlgorithmType } from '@/types/graph';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export function AlgorithmControls() {
   const { state, dispatch } = useGraph();
-  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex } = state;
+  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId } = state;
   const [localStartNode, setLocalStartNode] = useState('');
 
   const [numRandomNodes, setNumRandomNodes] = useState<string>("8");
@@ -27,6 +38,7 @@ export function AlgorithmControls() {
 
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
+    else setLocalStartNode('');
   }, [startNode]);
 
   const handleRunAlgorithm = () => {
@@ -51,8 +63,7 @@ export function AlgorithmControls() {
     } else if (animationSteps.length === 0){
         handleRunAlgorithm(); 
     } else {
-      // Animation is paused at the end, effectively do nothing or allow re-run
-      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); // to start if they want to restart animation steps
+      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); 
     }
   };
   
@@ -64,8 +75,7 @@ export function AlgorithmControls() {
         dispatch({ type: 'ANIMATION_STEP_FORWARD' });
       }, animationSpeed);
     } else if (isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
-      // Reached end of animation, stop animating
-      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); // This will set isAnimating to false
+      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); 
     }
     
     return () => {
@@ -107,6 +117,15 @@ export function AlgorithmControls() {
 
     dispatch({ type: 'CREATE_RANDOM_GRAPH', payload: { numNodes: numNodesVal, minWeight: minWeightVal, maxWeight: maxWeightVal } });
     toast({ title: "Graph Generated", description: `Generated a random graph with ${numNodesVal} nodes.` });
+  };
+
+  const handleDeleteSelectedNode = () => {
+    if (selectedNodeId) {
+      dispatch({ type: 'DELETE_NODE', payload: { nodeId: selectedNodeId } });
+      toast({ title: "Node Deleted", description: `Node ${selectedNodeId} has been deleted.` });
+    } else {
+      toast({ title: "No Node Selected", description: "Click on a node in the canvas to select it for deletion.", variant: "destructive"});
+    }
   };
 
   return (
@@ -183,6 +202,29 @@ export function AlgorithmControls() {
             <Zap className="mr-2 h-4 w-4" /> Clear Graph
           </Button>
         </div>
+
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" className="w-full" disabled={!selectedNodeId}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete Selected Node
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action will delete node {selectedNodeId && (nodes.find(n=>n.id===selectedNodeId)?.label || selectedNodeId)} and all its connected edges. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteSelectedNode} className={buttonVariants({variant: "destructive"})}>
+                Delete Node
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+        
         <ContextualHelpDialog />
 
         <Separator className="my-4" />
@@ -231,3 +273,9 @@ export function AlgorithmControls() {
     </Card>
   );
 }
+
+// Helper for AlertDialog button styling
+const buttonVariants = ({ variant }: { variant: "destructive" | "default" | null | undefined }) => {
+  if (variant === "destructive") return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
+  return "bg-primary text-primary-foreground hover:bg-primary/90";
+};

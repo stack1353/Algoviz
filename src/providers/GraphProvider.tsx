@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useReducer, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import type { Node, Edge, Graph, AlgorithmType, AnimationStep } from '@/types/graph';
 import { dijkstra } from '@/algorithms/dijkstra';
 import { prim } from '@/algorithms/prim';
@@ -18,6 +18,7 @@ interface GraphState extends Graph {
   currentVisualizationStateForAI: string | null;
   nextNodeId: number;
   nextEdgeId: number;
+  selectedNodeId: string | null; // For deletion
 }
 
 const initialState: GraphState = {
@@ -33,17 +34,21 @@ const initialState: GraphState = {
   currentVisualizationStateForAI: null,
   nextNodeId: 1,
   nextEdgeId: 1,
+  selectedNodeId: null,
 };
 
 // Constants for random graph generation
-const RANDOM_GRAPH_CANVAS_WIDTH = 760; // Logical canvas width for node placement
-const RANDOM_GRAPH_CANVAS_HEIGHT = 560; // Logical canvas height
-const NODE_RADIUS_PADDING = 30; // Padding from canvas edges and for node radius
-const RANDOM_EDGE_PROBABILITY = 0.2; // Chance to create an edge between any two nodes
+const RANDOM_GRAPH_CANVAS_WIDTH = 760; 
+const RANDOM_GRAPH_CANVAS_HEIGHT = 560; 
+const NODE_RADIUS_PADDING = 40; // Increased padding slightly for better layout
+const RANDOM_EDGE_PROBABILITY_ADDITIONAL = 0.15; // Chance for *additional* edges after ensuring connectivity
+
 
 type Action =
   | { type: 'ADD_NODE'; payload: { x: number; y: number } }
   | { type: 'ADD_EDGE'; payload: { source: string; target: string; weight: number } }
+  | { type: 'DELETE_NODE'; payload: { nodeId: string } }
+  | { type: 'SET_SELECTED_NODE'; payload: string | null }
   | { type: 'SET_ALGORITHM'; payload: AlgorithmType }
   | { type: 'SET_START_NODE'; payload: string | null }
   | { type: 'RUN_ALGORITHM' }
@@ -52,8 +57,6 @@ type Action =
   | { type: 'SET_ANIMATION_SPEED'; payload: number }
   | { type: 'RESET_GRAPH' }
   | { type: 'RESET_ANIMATION' }
-  | { type: 'SET_NODES'; payload: Node[] }
-  | { type: 'SET_EDGES'; payload: Edge[] }
   | { type: 'ADD_MESSAGE'; payload: string }
   | { type: 'CLEAR_MESSAGES' }
   | { type: 'UPDATE_NODE_VISUALS'; payload: { nodeId: string; color?: string; label?: string } }
@@ -69,7 +72,13 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'ADD_NODE':
       const newNodeId = `node-${state.nextNodeId}`;
       const newNode: Node = { id: newNodeId, x: action.payload.x, y: action.payload.y, label: `N${state.nextNodeId}` };
-      return { ...state, nodes: [...state.nodes, newNode], nextNodeId: state.nextNodeId + 1, messages: [] };
+      return { 
+        ...state, 
+        nodes: [...state.nodes, newNode], 
+        nextNodeId: state.nextNodeId + 1, 
+        messages: [],
+        selectedNodeId: newNodeId, // Select the newly added node
+      };
     case 'ADD_EDGE':
       if (state.edges.some(e => 
         (e.source === action.payload.source && e.target === action.payload.target) ||
@@ -79,13 +88,44 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       }
       const newEdgeId = `edge-${state.nextEdgeId}`;
       const newEdge: Edge = { id: newEdgeId, ...action.payload, isDirected: state.selectedAlgorithm === 'dijkstra' };
-      return { ...state, edges: [...state.edges, newEdge], nextEdgeId: state.nextEdgeId + 1, messages: [] };
+      return { 
+        ...state, 
+        edges: [...state.edges, newEdge], 
+        nextEdgeId: state.nextEdgeId + 1, 
+        messages: [],
+        selectedNodeId: null, // Clear selection after adding edge
+      };
+    case 'DELETE_NODE': {
+      const { nodeId } = action.payload;
+      const remainingNodes = state.nodes.filter(node => node.id !== nodeId);
+      const remainingEdges = state.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId);
+      
+      let newStartNode = state.startNode;
+      if (state.startNode === nodeId) {
+        newStartNode = null; // Or set to another node if desired
+      }
+
+      return {
+        ...state,
+        nodes: remainingNodes,
+        edges: remainingEdges,
+        selectedNodeId: null,
+        startNode: newStartNode,
+        animationSteps: [], // Stop and clear animation
+        currentStepIndex: -1,
+        isAnimating: false,
+        messages: [`Node ${nodeId} and its edges deleted.`],
+        currentVisualizationStateForAI: null,
+      };
+    }
+    case 'SET_SELECTED_NODE':
+      return { ...state, selectedNodeId: action.payload };
     case 'SET_ALGORITHM':
       const updatedEdgesForAlgo = state.edges.map(edge => ({
         ...edge,
         isDirected: action.payload === 'dijkstra'
       }));
-      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], edges: updatedEdgesForAlgo };
+      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], edges: updatedEdgesForAlgo, selectedNodeId: null };
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
     case 'RUN_ALGORITHM':
@@ -100,7 +140,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       } else if (state.selectedAlgorithm === 'kruskal') {
         steps = kruskal(currentGraph);
       }
-      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null };
+      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null };
     case 'ANIMATION_STEP_FORWARD':
       if (state.currentStepIndex < state.animationSteps.length - 1) {
         const nextStepIndex = state.currentStepIndex + 1;
@@ -121,7 +161,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         } else if (currentStep.type === "update-node-label" && currentStep.nodeId) {
             newNodes = newNodes.map(n => n.id === currentStep.nodeId ? { ...n, label: currentStep.label } : n);
         } else if (currentStep.type === "message" && currentStep.message) {
-            newMessages = [currentStep.message, ...newMessages];
+            newMessages = [currentStep.message, ...newMessages.slice(0, 99)]; // Keep messages capped
         } else if (currentStep.type === "reset-colors") {
             newNodes = newNodes.map(n => ({ ...n, color: undefined }));
             newEdges = newEdges.map(e => ({ ...e, color: undefined }));
@@ -159,7 +199,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_ANIMATION_SPEED':
       return { ...state, animationSpeed: action.payload };
     case 'RESET_GRAPH':
-      return { ...initialState, animationSpeed: state.animationSpeed };
+      return { ...initialState, animationSpeed: state.animationSpeed, selectedAlgorithm: state.selectedAlgorithm };
     case 'RESET_ANIMATION':
         const baseLabelForReset = (nodeId: string) => {
             const parts = nodeId.split('-');
@@ -173,13 +213,10 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nodes: state.nodes.map(n => ({...n, color: undefined, label: baseLabelForReset(n.id) })),
         edges: state.edges.map(e => ({...e, color: undefined})),
         currentVisualizationStateForAI: null,
+        selectedNodeId: null,
       };
-    case 'SET_NODES':
-      return { ...state, nodes: action.payload };
-    case 'SET_EDGES':
-      return { ...state, edges: action.payload };
     case 'ADD_MESSAGE':
-      return { ...state, messages: [action.payload, ...state.messages] };
+      return { ...state, messages: [action.payload, ...state.messages.slice(0,99)] };
     case 'CLEAR_MESSAGES':
       return { ...state, messages: [] };
     case 'UPDATE_NODE_VISUALS':
@@ -206,7 +243,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'CREATE_RANDOM_GRAPH': {
         const { numNodes, minWeight, maxWeight } = action.payload;
         const newGeneratedNodes: Node[] = [];
-        const newGeneratedEdges: Edge[] = [];
+        let newGeneratedEdges: Edge[] = [];
 
         let localNodeIdCounter = 1;
         let localEdgeIdCounter = 1;
@@ -221,12 +258,20 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             });
         }
 
-        for (let i = 0; i < numNodes; i++) {
-            for (let j = i + 1; j < numNodes; j++) {
-                if (Math.random() < RANDOM_EDGE_PROBABILITY) {
+        // Ensure connectivity by creating a path/cycle through all nodes
+        if (numNodes > 1) {
+            for (let i = 0; i < numNodes; i++) {
+                const sourceNodeId = newGeneratedNodes[i].id;
+                const targetNodeId = newGeneratedNodes[(i + 1) % numNodes].id; // Connect to next, or last to first for a cycle
+                
+                // Avoid duplicate if already connected (for cycle forming on last node)
+                const edgeExists = newGeneratedEdges.some(e => 
+                    (e.source === sourceNodeId && e.target === targetNodeId) ||
+                    (e.source === targetNodeId && e.target === sourceNodeId)
+                );
+
+                if (!edgeExists) {
                     const weight = Math.floor(Math.random() * (maxWeight - minWeight + 1)) + minWeight;
-                    const sourceNodeId = newGeneratedNodes[i].id;
-                    const targetNodeId = newGeneratedNodes[j].id;
                     const edgeId = `edge-${localEdgeIdCounter++}`;
                     newGeneratedEdges.push({
                         id: edgeId,
@@ -235,6 +280,33 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
                         weight: weight,
                         isDirected: false 
                     });
+                }
+            }
+        }
+
+        // Add additional random edges
+        for (let i = 0; i < numNodes; i++) {
+            for (let j = i + 1; j < numNodes; j++) {
+                if (Math.random() < RANDOM_EDGE_PROBABILITY_ADDITIONAL) {
+                    const sourceNodeId = newGeneratedNodes[i].id;
+                    const targetNodeId = newGeneratedNodes[j].id;
+                    
+                    const edgeExists = newGeneratedEdges.some(e => 
+                        (e.source === sourceNodeId && e.target === targetNodeId) ||
+                        (e.source === targetNodeId && e.target === sourceNodeId)
+                    );
+
+                    if (!edgeExists) {
+                        const weight = Math.floor(Math.random() * (maxWeight - minWeight + 1)) + minWeight;
+                        const edgeId = `edge-${localEdgeIdCounter++}`;
+                        newGeneratedEdges.push({
+                            id: edgeId,
+                            source: sourceNodeId,
+                            target: targetNodeId,
+                            weight: weight,
+                            isDirected: false 
+                        });
+                    }
                 }
             }
         }
@@ -249,8 +321,9 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             edges: finalEdges,
             nextNodeId: localNodeIdCounter, 
             nextEdgeId: localEdgeIdCounter, 
-            messages: [`Generated random graph with ${numNodes} nodes.`],
+            messages: [`Generated random graph with ${numNodes} nodes. All nodes are connected.`],
             currentVisualizationStateForAI: null,
+            selectedNodeId: null,
         };
     }
     default:
@@ -277,5 +350,3 @@ export const useGraph = () => {
   }
   return context;
 };
-
-    
