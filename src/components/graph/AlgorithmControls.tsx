@@ -33,6 +33,10 @@ const RANDOM_GRAPH_CANVAS_WIDTH = 760;
 const RANDOM_GRAPH_CANVAS_HEIGHT = 560; 
 const NODE_RADIUS_PADDING = 40;
 
+// Constants for image resizing
+const MAX_IMAGE_DIMENSION = 1024; // Max width or height for AI processing
+const IMAGE_QUALITY = 0.8; // JPEG quality for resized images
+
 
 export function AlgorithmControls() {
   const { state, dispatch } = useGraph();
@@ -149,6 +153,44 @@ export function AlgorithmControls() {
     }
   };
 
+  const resizeImage = (imageDataUri: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image();
+      img.onload = () => {
+        let { width, height } = img;
+        let resizedDataUri = imageDataUri;
+
+        if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
+          if (width > height) {
+            height = Math.round((height * MAX_IMAGE_DIMENSION) / width);
+            width = MAX_IMAGE_DIMENSION;
+          } else {
+            width = Math.round((width * MAX_IMAGE_DIMENSION) / height);
+            height = MAX_IMAGE_DIMENSION;
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            return reject(new Error("Could not get canvas context for resizing."));
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          resizedDataUri = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
+          console.log(`Image resized to ${width}x${height}`);
+        }
+        resolve(resizedDataUri);
+      };
+      img.onerror = (error) => {
+        console.error("Error loading image for resizing:", error);
+        reject(new Error("Could not load image for resizing."));
+      };
+      img.src = imageDataUri;
+    });
+  };
+
+
   const handleExtractGraph = async () => {
     if (!selectedImageFile) {
       toast({ title: "No Image Selected", description: "Please select an image file first.", variant: "destructive" });
@@ -162,8 +204,18 @@ export function AlgorithmControls() {
       const reader = new FileReader();
       reader.readAsDataURL(selectedImageFile);
       reader.onload = async () => {
-        const imageDataUri = reader.result as string;
-        const input: ExtractGraphFromImageInput = { imageDataUri };
+        const originalImageDataUri = reader.result as string;
+        let imageDataUriForAI = originalImageDataUri;
+
+        try {
+            imageDataUriForAI = await resizeImage(originalImageDataUri);
+        } catch (resizeError) {
+            console.error("Image resizing failed:", resizeError);
+            toast({ title: "Image Resizing Failed", description: (resizeError as Error).message + " Using original image.", variant: "destructive" });
+            // Continue with original image if resizing fails
+        }
+        
+        const input: ExtractGraphFromImageInput = { imageDataUri: imageDataUriForAI };
         const aiOutput: ExtractGraphFromImageOutput = await extractGraphFromImage(input);
 
         if (aiOutput.error || !aiOutput.nodes || aiOutput.nodes.length === 0) {
@@ -172,7 +224,6 @@ export function AlgorithmControls() {
           return;
         }
 
-        // Process AI output
         const newNodes: GraphNode[] = [];
         const newEdges: GraphEdge[] = [];
         const aiIdToInternalIdMap = new Map<string, string>();
@@ -185,8 +236,6 @@ export function AlgorithmControls() {
           newNodes.push({
             id: internalNodeId,
             label: aiNode.label || `N${nodeIdCounter-1}`,
-            // Scale normalized coordinates to canvas dimensions
-            // Subtract padding because random graph also does, then add it. Or just scale within drawable area.
             x: NODE_RADIUS_PADDING + aiNode.x * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
             y: NODE_RADIUS_PADDING + aiNode.y * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
           });
@@ -201,8 +250,8 @@ export function AlgorithmControls() {
               id: `edge-${edgeIdCounter++}`,
               source: sourceInternalId,
               target: targetInternalId,
-              weight: aiEdge.weight !== undefined && aiEdge.weight > 0 ? aiEdge.weight : 1, // Default weight 1 if not provided or invalid
-              isDirected: aiEdge.isDirected || false, // Default to undirected
+              weight: aiEdge.weight !== undefined && aiEdge.weight > 0 ? aiEdge.weight : 1,
+              isDirected: aiEdge.isDirected || false,
             });
           } else {
             console.warn(`Skipping edge due to missing node mapping: ${aiEdge.sourceId} -> ${aiEdge.targetId}`);
@@ -211,7 +260,7 @@ export function AlgorithmControls() {
         
         dispatch({ type: 'SET_EXTRACTED_GRAPH', payload: { nodes: newNodes, edges: newEdges, nextNodeId: nodeIdCounter, nextEdgeId: edgeIdCounter } });
         toast({ title: "Graph Extracted!", description: `Successfully processed the image and generated a graph with ${newNodes.length} nodes and ${newEdges.length} edges.` });
-        setSelectedImageFile(null); // Clear selection after processing
+        setSelectedImageFile(null);
       };
       reader.onerror = (error) => {
         console.error("Error reading file:", error);
