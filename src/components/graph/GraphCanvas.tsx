@@ -8,8 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox'; // Import Checkbox
 import { toast } from '@/hooks/use-toast';
-import { ZoomIn, ZoomOut, MinusCircle } from 'lucide-react';
+import { ZoomIn, ZoomOut } from 'lucide-react';
 
 const NODE_RADIUS = 20;
 const SVG_BACKGROUND_COLOR = "hsl(var(--card))"; 
@@ -31,11 +32,11 @@ export function GraphCanvas() {
   const [tempEdgeStartNode, setTempEdgeStartNode] = useState<Node | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   const [edgeWeight, setEdgeWeight] = useState<string>("1");
+  const [isDirectedEdge, setIsDirectedEdge] = useState<boolean>(false); // State for edge direction
   const [isWeightPopoverOpen, setIsWeightPopoverOpen] = useState(false);
   const [pendingEdgeTargetNode, setPendingEdgeTargetNode] = useState<Node | null>(null);
   const [scale, setScale] = useState(1);
-  // For panning - future enhancement
-  // const [translate, setTranslate] = useState({ x: 0, y: 0 }); 
+  
 
   const getSVGCoordinates = (event: React.MouseEvent<SVGSVGElement>): { x: number; y: number } | null => {
     if (!svgRef.current) return null;
@@ -43,34 +44,17 @@ export function GraphCanvas() {
     pt.x = event.clientX;
     pt.y = event.clientY;
     
-    // Get the CTM (Current Transformation Matrix) of the SVG element itself
     let ctm = svgRef.current.getScreenCTM();
-    if (!ctm) return null; // Should not happen in normal circumstances
-
-    // If a scaled group (<g transform="scale(...)">) is the direct child,
-    // we need to account for its transformation if we want coordinates relative to that group's parent (the SVG).
-    // However, for adding nodes, we want coordinates *within* the scaled group if it exists,
-    // or within the SVG if it doesn't.
-    // The current setup applies scale to a <g> element. We want coordinates *as if* there was no scale on the <g>,
-    // but the click event is on the SVG.
-    
-    // The pt.matrixTransform(ctm.inverse()) gives coordinates relative to the SVG viewport.
-    // If we have a <g transform="scale(S)"> inside, and we want to place a node at (x',y') *within* that g,
-    // such that its visual position matches the click, then x' = svg_click_x / S, y' = svg_click_y / S.
+    if (!ctm) return null; 
 
     const svgPoint = pt.matrixTransform(ctm.inverse());
 
-    // If we are transforming a <g> element inside the SVG by `scale`:
-    // The coordinates from svgPoint are in the SVG's coordinate system.
-    // To get coordinates for elements *inside* the scaled <g>, we divide by scale.
     return { x: svgPoint.x / scale, y: svgPoint.y / scale };
   };
 
 
   const handleCanvasClick = (event: React.MouseEvent<SVGSVGElement>) => {
-     // Check if the click target is the SVG itself or the main <g> element (for background clicks)
     if (event.target !== svgRef.current && (event.target as SVGGElement).dataset?.elementType !== 'graph-content') {
-        // Click was on a node, edge, or other element, not the canvas background
         return;
     }
     
@@ -78,53 +62,44 @@ export function GraphCanvas() {
     if (coords) {
       dispatch({ type: 'ADD_NODE', payload: { x: coords.x, y: coords.y } });
       setTempEdgeStartNode(null); 
-      // ADD_NODE action now selects the new node.
-      // If we wanted to deselect on canvas click, we'd dispatch SET_SELECTED_NODE(null) here.
-      // For now, clicking canvas adds a node and selects it.
     }
   };
 
   const handleNodeClick = (node: Node, event: React.MouseEvent<SVGGElement>) => {
-    event.stopPropagation(); // Prevent canvas click from firing
+    event.stopPropagation(); 
 
     if (!tempEdgeStartNode) {
       setTempEdgeStartNode(node);
       dispatch({ type: 'SET_SELECTED_NODE', payload: node.id });
     } else if (tempEdgeStartNode.id !== node.id) {
       setPendingEdgeTargetNode(node);
-      // Position popover near the midpoint of the potential edge
       const x = (tempEdgeStartNode.x + node.x) / 2 * scale;
       const y = (tempEdgeStartNode.y + node.y) / 2 * scale;
       
       const popoverTrigger = document.getElementById('edge-weight-popover-trigger');
       if (popoverTrigger && svgRef.current) {
-          // We need to translate the logical SVG coordinates to screen coordinates for the popover
           const svgRect = svgRef.current.getBoundingClientRect();
-
-          // Midpoint in SVG's scaled coordinate system
           let midX_svg = (tempEdgeStartNode.x + node.x) / 2;
           let midY_svg = (tempEdgeStartNode.y + node.y) / 2;
           
-          // Apply scale to get "visual" coordinates within the unscaled SVG viewport space
           midX_svg *= scale;
           midY_svg *= scale;
 
-          // Create an SVGPoint for transformation
           const pt = svgRef.current.createSVGPoint();
           pt.x = midX_svg;
           pt.y = midY_svg;
           
-          // Transform this point to screen coordinates
           const screenPoint = pt.matrixTransform(svgRef.current.getScreenCTM()!);
           
-          popoverTrigger.style.position = 'fixed'; // Ensure it's relative to viewport
+          popoverTrigger.style.position = 'fixed'; 
           popoverTrigger.style.left = `${screenPoint.x}px`;
           popoverTrigger.style.top = `${screenPoint.y}px`;
       }
+      setIsDirectedEdge(state.selectedAlgorithm === 'dijkstra'); // Default to directed if Dijkstra is selected
       setIsWeightPopoverOpen(true);
-    } else { // Clicked same node again
-      setTempEdgeStartNode(null); // Cancel edge drawing
-      dispatch({ type: 'SET_SELECTED_NODE', payload: null }); // Deselect
+    } else { 
+      setTempEdgeStartNode(null); 
+      dispatch({ type: 'SET_SELECTED_NODE', payload: null }); 
     }
   };
   
@@ -135,12 +110,21 @@ export function GraphCanvas() {
         toast({ title: "Invalid Weight", description: "Edge weight must be a positive number.", variant: "destructive" });
         return;
       }
-      dispatch({ type: 'ADD_EDGE', payload: { source: tempEdgeStartNode.id, target: pendingEdgeTargetNode.id, weight } });
+      dispatch({ 
+        type: 'ADD_EDGE', 
+        payload: { 
+          source: tempEdgeStartNode.id, 
+          target: pendingEdgeTargetNode.id, 
+          weight,
+          isDirected: isDirectedEdge // Pass the direction state
+        } 
+      });
       setTempEdgeStartNode(null);
       setPendingEdgeTargetNode(null);
       setEdgeWeight("1");
+      setIsDirectedEdge(false); // Reset checkbox state
       setIsWeightPopoverOpen(false);
-      dispatch({ type: 'SET_SELECTED_NODE', payload: null }); // Deselect after adding edge
+      dispatch({ type: 'SET_SELECTED_NODE', payload: null }); 
     }
   };
 
@@ -160,11 +144,9 @@ export function GraphCanvas() {
   };
 
   useEffect(() => {
-    // If selected node is deleted from AlgorithmControls, tempEdgeStartNode might be stale
     if (selectedNodeId === null && tempEdgeStartNode) {
       setTempEdgeStartNode(null);
     } else if (selectedNodeId && !nodes.find(n => n.id === selectedNodeId)) {
-      // Selected node was deleted externally
       dispatch({ type: 'SET_SELECTED_NODE', payload: null });
       setTempEdgeStartNode(null);
     }
@@ -190,16 +172,15 @@ export function GraphCanvas() {
             viewBox="0 0 10 10"
             refX="10" 
             refY="5"
-            markerWidth="4" // Keeps arrow size consistent regardless of zoom
+            markerWidth="4" 
             markerHeight="4"
             orient="auto-start-reverse"
-            markerUnits="strokeWidth" // Make marker scale with stroke if desired, or userSpaceOnUse for fixed
+            markerUnits="userSpaceOnUse" // Changed to userSpaceOnUse for fixed size
           >
             <path d="M 0 0 L 10 5 L 0 10 z" fill={EDGE_DEFAULT_COLOR} />
           </marker>
         </defs>
         
-        {/* This 'g' element will handle the zooming and panning */}
         <g transform={`scale(${scale})`} data-element-type="graph-content">
           {edges.map(edge => {
             const sourceNode = getNodeById(edge.source);
@@ -210,13 +191,11 @@ export function GraphCanvas() {
             const dy = targetNode.y - sourceNode.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             
-            // Adjust arrow offset to be visually consistent at different zoom levels
-            const arrowHeadSize = 8; // Fixed visual size for arrowhead logic
-            const arrowOffset = edge.isDirected ? arrowHeadSize / scale : 0; 
-            const nodeRadiusScaled = NODE_RADIUS; // Node radius is in unscaled coordinates
+            const arrowHeadVisualSize = 8; // Visual size of arrowhead in screen pixels
+            // Adjust marker refX based on scale if markerUnits="strokeWidth", or adjust line end for userSpaceOnUse
+            const arrowOffset = edge.isDirected ? arrowHeadVisualSize / scale : 0; 
+            const nodeRadiusScaled = NODE_RADIUS; 
 
-            // Calculate new start and end points for the line to avoid overlapping the node circle
-            // And to make space for the arrowhead
             const ratioSource = nodeRadiusScaled / dist;
             const ratioTarget = (dist - nodeRadiusScaled - arrowOffset) / dist; 
             
@@ -233,17 +212,17 @@ export function GraphCanvas() {
                   x2={targetX}
                   y2={targetY}
                   stroke={edge.color || EDGE_DEFAULT_COLOR}
-                  strokeWidth={Math.max(0.5, 2 / scale)} // Ensure stroke doesn't become too thin or disappear
+                  strokeWidth={Math.max(0.5, 2 / scale)} 
                   markerEnd={edge.isDirected ? "url(#arrow)" : undefined}
                 />
                 <text
                   x={(sourceNode.x + targetNode.x) / 2}
                   y={(sourceNode.y + targetNode.y) / 2 - (5 / scale)}
                   fill={EDGE_WEIGHT_COLOR}
-                  fontSize={Math.max(6, 12 / scale)} // Ensure font size is readable
+                  fontSize={Math.max(6, 12 / scale)} 
                   textAnchor="middle"
                   pointerEvents="none"
-                  dy=".3em" // Better vertical alignment
+                  dy=".3em" 
                 >
                   {edge.weight}
                 </text>
@@ -259,7 +238,7 @@ export function GraphCanvas() {
               y2={mousePosition.y}
               stroke={EDGE_DEFAULT_COLOR}
               strokeWidth={Math.max(0.5, 2 / scale)}
-              strokeDasharray={`${Math.max(1, 5/scale)},${Math.max(1, 5/scale)}`} // Ensure dash is visible
+              strokeDasharray={`${Math.max(1, 5/scale)},${Math.max(1, 5/scale)}`} 
             />
           )}
 
@@ -268,10 +247,10 @@ export function GraphCanvas() {
               <circle
                 cx={node.x}
                 cy={node.y}
-                r={NODE_RADIUS} // Radius is in unscaled coordinates
+                r={NODE_RADIUS} 
                 fill={node.color || (selectedNodeId === node.id ? NODE_SELECTED_COLOR : (tempEdgeStartNode?.id === node.id ? NODE_TEMP_EDGE_START_COLOR : NODE_DEFAULT_COLOR))}
                 stroke="hsl(var(--border))"
-                strokeWidth={Math.max(0.5, 1 / scale)} // Adjust stroke width with zoom
+                strokeWidth={Math.max(0.5, 1 / scale)} 
               />
               <text
                 x={node.x}
@@ -281,7 +260,7 @@ export function GraphCanvas() {
                 fontSize={Math.max(6, 12 / scale)} 
                 fontWeight="bold"
                 pointerEvents="none" 
-                dy=".3em" // Better vertical centering of text
+                dy=".3em" 
               >
                 {node.label || node.id.replace('node-', 'N')}
               </text>
@@ -290,27 +269,26 @@ export function GraphCanvas() {
         </g>
       </svg>
 
-      {/* Invisible Popover Trigger - position updated dynamically */}
       <Popover open={isWeightPopoverOpen} onOpenChange={(isOpen) => {
           setIsWeightPopoverOpen(isOpen);
-          if (!isOpen) { // If popover closed without confirming
+          if (!isOpen) { 
             setTempEdgeStartNode(null);
             setPendingEdgeTargetNode(null);
+            setIsDirectedEdge(false); // Reset checkbox
             dispatch({ type: 'SET_SELECTED_NODE', payload: null });
           }
         }}
       >
         <PopoverTrigger asChild>
-          {/* This button is positioned dynamically using JavaScript */}
           <button id="edge-weight-popover-trigger" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width:1, height:1 }} />
         </PopoverTrigger>
         <PopoverContent className="w-60">
           <div className="grid gap-4">
             <div className="space-y-2">
-              <h4 className="font-medium leading-none">Edge Weight</h4>
+              <h4 className="font-medium leading-none">Edge Details</h4>
               {tempEdgeStartNode && pendingEdgeTargetNode && (
                 <p className="text-sm text-muted-foreground">
-                  Enter weight for edge {tempEdgeStartNode.label || tempEdgeStartNode.id.replace('node-','N')} - {pendingEdgeTargetNode.label || pendingEdgeTargetNode.id.replace('node-','N')}.
+                  Edge: {tempEdgeStartNode.label || tempEdgeStartNode.id.replace('node-','N')} - {pendingEdgeTargetNode.label || pendingEdgeTargetNode.id.replace('node-','N')}.
                 </p>
               )}
             </div>
@@ -324,8 +302,18 @@ export function GraphCanvas() {
                 className="col-span-2 h-8"
                 min="1"
                 autoFocus
-                onKeyDown={(e) => { if (e.key === 'Enter') handleConfirmEdge(); }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleConfirmEdge(); }}
               />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isDirected"
+                checked={isDirectedEdge}
+                onCheckedChange={(checked) => setIsDirectedEdge(checked as boolean)}
+              />
+              <Label htmlFor="isDirected" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Directed Edge
+              </Label>
             </div>
             <Button onClick={handleConfirmEdge} size="sm">Add Edge</Button>
           </div>
@@ -347,3 +335,4 @@ export function GraphCanvas() {
     </div>
   );
 }
+

@@ -8,12 +8,12 @@ export interface Node {
 }
 
 export interface Edge {
-  id: string;
+  id:string;
   source: string; // Node ID
   target: string; // Node ID
   weight: number;
   color?: string; // For highlighting
-  isDirected?: boolean; // Default to undirected for these algorithms
+  isDirected: boolean; // User can define this now
 }
 
 export interface Graph {

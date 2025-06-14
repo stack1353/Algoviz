@@ -40,13 +40,13 @@ const initialState: GraphState = {
 // Constants for random graph generation
 const RANDOM_GRAPH_CANVAS_WIDTH = 760; 
 const RANDOM_GRAPH_CANVAS_HEIGHT = 560; 
-const NODE_RADIUS_PADDING = 40; // Increased padding slightly for better layout
-const RANDOM_EDGE_PROBABILITY_ADDITIONAL = 0.15; // Chance for *additional* edges after ensuring connectivity
+const NODE_RADIUS_PADDING = 40; 
+const RANDOM_EDGE_PROBABILITY_ADDITIONAL = 0.15; 
 
 
 type Action =
   | { type: 'ADD_NODE'; payload: { x: number; y: number } }
-  | { type: 'ADD_EDGE'; payload: { source: string; target: string; weight: number } }
+  | { type: 'ADD_EDGE'; payload: { source: string; target: string; weight: number; isDirected: boolean } }
   | { type: 'DELETE_NODE'; payload: { nodeId: string } }
   | { type: 'SET_SELECTED_NODE'; payload: string | null }
   | { type: 'SET_ALGORITHM'; payload: AlgorithmType }
@@ -77,23 +77,29 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nodes: [...state.nodes, newNode], 
         nextNodeId: state.nextNodeId + 1, 
         messages: [],
-        selectedNodeId: newNodeId, // Select the newly added node
+        selectedNodeId: newNodeId, 
       };
     case 'ADD_EDGE':
       if (state.edges.some(e => 
         (e.source === action.payload.source && e.target === action.payload.target) ||
-        (e.source === action.payload.target && e.target === action.payload.source && !e.isDirected)
+        (e.source === action.payload.target && e.target === action.payload.source && !e.isDirected && !action.payload.isDirected)
       )) {
-        return { ...state, messages: [...state.messages, "Edge already exists or overlaps."] };
+        return { ...state, messages: [...state.messages, "Edge already exists or overlaps with an undirected edge."] };
       }
       const newEdgeId = `edge-${state.nextEdgeId}`;
-      const newEdge: Edge = { id: newEdgeId, ...action.payload, isDirected: state.selectedAlgorithm === 'dijkstra' };
+      const newEdge: Edge = { 
+        id: newEdgeId, 
+        source: action.payload.source, 
+        target: action.payload.target, 
+        weight: action.payload.weight,
+        isDirected: action.payload.isDirected 
+      };
       return { 
         ...state, 
         edges: [...state.edges, newEdge], 
         nextEdgeId: state.nextEdgeId + 1, 
         messages: [],
-        selectedNodeId: null, // Clear selection after adding edge
+        selectedNodeId: null, 
       };
     case 'DELETE_NODE': {
       const { nodeId } = action.payload;
@@ -102,7 +108,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       
       let newStartNode = state.startNode;
       if (state.startNode === nodeId) {
-        newStartNode = null; // Or set to another node if desired
+        newStartNode = null; 
       }
 
       return {
@@ -111,7 +117,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         edges: remainingEdges,
         selectedNodeId: null,
         startNode: newStartNode,
-        animationSteps: [], // Stop and clear animation
+        animationSteps: [], 
         currentStepIndex: -1,
         isAnimating: false,
         messages: [`Node ${nodeId} and its edges deleted.`],
@@ -121,17 +127,15 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_SELECTED_NODE':
       return { ...state, selectedNodeId: action.payload };
     case 'SET_ALGORITHM':
-      const updatedEdgesForAlgo = state.edges.map(edge => ({
-        ...edge,
-        isDirected: action.payload === 'dijkstra'
-      }));
-      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], edges: updatedEdgesForAlgo, selectedNodeId: null };
+      // No longer changing edge directionality here. Algorithms will interpret.
+      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null };
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
     case 'RUN_ALGORITHM':
       if (!state.selectedAlgorithm) return state;
       let steps: AnimationStep[] = [];
-      const currentGraph = { nodes: state.nodes, edges: state.edges.map(e => ({...e, isDirected: state.selectedAlgorithm === 'dijkstra'})) };
+      // Algorithms will now receive the graph with edges as they are (user-defined directionality)
+      const currentGraph = { nodes: state.nodes, edges: state.edges }; 
       
       if (state.selectedAlgorithm === 'dijkstra' && state.startNode) {
         steps = dijkstra(currentGraph, state.startNode);
@@ -161,7 +165,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         } else if (currentStep.type === "update-node-label" && currentStep.nodeId) {
             newNodes = newNodes.map(n => n.id === currentStep.nodeId ? { ...n, label: currentStep.label } : n);
         } else if (currentStep.type === "message" && currentStep.message) {
-            newMessages = [currentStep.message, ...newMessages.slice(0, 99)]; // Keep messages capped
+            newMessages = [currentStep.message, ...newMessages.slice(0, 99)]; 
         } else if (currentStep.type === "reset-colors") {
             newNodes = newNodes.map(n => ({ ...n, color: undefined }));
             newEdges = newEdges.map(e => ({ ...e, color: undefined }));
@@ -245,31 +249,24 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const newGeneratedNodes: Node[] = [];
         let newGeneratedEdges: Edge[] = [];
 
-        let localNodeIdCounter = state.nextNodeId; // Use current counter to avoid ID collisions if mixing manual and random
+        let localNodeIdCounter = state.nextNodeId; 
         let localEdgeIdCounter = state.nextEdgeId;
-
-        // Reset graph but keep counters going if we are adding to existing graph setup
-        // For now, let's assume CREATE_RANDOM_GRAPH means a full new graph.
-        // If we want to add to existing, we'd remove the ...initialState spread.
         
-        const baseIdForRandom = state.nextNodeId; // Keep track of starting ID for new nodes
-
         for (let i = 0; i < numNodes; i++) {
             const nodeId = `node-${localNodeIdCounter}`;
             newGeneratedNodes.push({
                 id: nodeId,
                 x: NODE_RADIUS_PADDING + Math.random() * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
                 y: NODE_RADIUS_PADDING + Math.random() * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
-                label: `N${localNodeIdCounter}` // Label uses the global counter
+                label: `N${localNodeIdCounter}` 
             });
             localNodeIdCounter++;
         }
 
-        // Ensure connectivity by creating a path/cycle through all nodes
         if (numNodes > 1) {
             for (let i = 0; i < numNodes; i++) {
                 const sourceNodeId = newGeneratedNodes[i].id;
-                const targetNodeId = newGeneratedNodes[(i + 1) % numNodes].id; // Connect to next, or last to first for a cycle
+                const targetNodeId = newGeneratedNodes[(i + 1) % numNodes].id; 
                 
                 const edgeExists = newGeneratedEdges.some(e => 
                     (e.source === sourceNodeId && e.target === targetNodeId) ||
@@ -284,13 +281,12 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
                         source: sourceNodeId,
                         target: targetNodeId,
                         weight: weight,
-                        isDirected: false 
+                        isDirected: false // Random graphs are undirected by default
                     });
                 }
             }
         }
 
-        // Add additional random edges
         for (let i = 0; i < numNodes; i++) {
             for (let j = i + 1; j < numNodes; j++) {
                 if (Math.random() < RANDOM_EDGE_PROBABILITY_ADDITIONAL) {
@@ -310,25 +306,21 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
                             source: sourceNodeId,
                             target: targetNodeId,
                             weight: weight,
-                            isDirected: false 
+                            isDirected: false // Random graphs are undirected by default
                         });
                     }
                 }
             }
         }
-        const isDirectedCurrentAlgo = state.selectedAlgorithm === 'dijkstra';
-        const finalEdges = newGeneratedEdges.map(edge => ({...edge, isDirected: isDirectedCurrentAlgo }));
 
         return {
-            // Spread initial state to ensure a clean slate for the new graph, but preserve some settings
             ...initialState, 
             animationSpeed: state.animationSpeed, 
             selectedAlgorithm: state.selectedAlgorithm,
-            // Start node might need to be cleared or re-evaluated if it was set
-            startNode: null, // Clear start node as graph is new
+            startNode: null, 
 
             nodes: newGeneratedNodes,
-            edges: finalEdges,
+            edges: newGeneratedEdges,
             nextNodeId: localNodeIdCounter, 
             nextEdgeId: localEdgeIdCounter, 
             messages: [`Generated random graph with ${numNodes} nodes. All nodes are connected.`],

@@ -15,9 +15,11 @@ export function dijkstra(graph: Graph, startNodeId: string): AnimationStep[] {
   
   const distances: { [nodeId: string]: number } = {};
   const visited: { [nodeId: string]: boolean } = {};
+  const predecessors: { [nodeId: string]: string | null } = {};
   
   nodes.forEach(node => {
     distances[node.id] = Infinity;
+    predecessors[node.id] = null;
     steps.push({ type: "highlight-node", nodeId: node.id, color: "hsl(var(--secondary))", descriptionForAI: `Node ${node.id} initialized with infinite distance.` });
     steps.push({ type: "update-node-label", nodeId: node.id, label: "∞" });
   });
@@ -26,80 +28,75 @@ export function dijkstra(graph: Graph, startNodeId: string): AnimationStep[] {
   steps.push({ type: "update-node-label", nodeId: startNodeId, label: "0" });
   steps.push({ type: "highlight-node", nodeId: startNodeId, color: "hsl(var(--primary))", descriptionForAI: `Node ${startNodeId} (start node) distance set to 0.` });
 
-  // Placeholder: Simulate some processing - a real implementation would involve a priority queue
-  // For this placeholder, we'll just "visit" a few nodes and "relax" some edges.
-  
-  // Simulate visiting the start node
-  visited[startNodeId] = true;
-  steps.push({ type: "highlight-node", nodeId: startNodeId, color: "hsl(var(--accent))", descriptionForAI: `Node ${startNodeId} is currently being processed.` });
+  const pq: string[] = [...nodes.map(n => n.id)]; // Simple array as priority queue
 
-  // Simulate relaxing edges from startNode
-  edges.forEach(edge => {
-    if (edge.source === startNodeId || edge.target === startNodeId) { // Assuming undirected or checking both for directed
-      const neighbor = edge.source === startNodeId ? edge.target : edge.source;
-      if (!visited[neighbor]) {
-        const newDist = distances[startNodeId] + edge.weight;
-        if (newDist < distances[neighbor]) {
-          distances[neighbor] = newDist;
-          steps.push({ type: "highlight-edge", edgeId: edge.id, color: "hsl(var(--secondary))", descriptionForAI: `Edge ${edge.source}-${edge.target} considered for relaxation.` });
-          steps.push({ type: "update-node-label", nodeId: neighbor, label: newDist.toString() });
-          steps.push({ type: "highlight-node", nodeId: neighbor, color: "hsl(var(--primary))", descriptionForAI: `Distance to ${neighbor} updated to ${newDist}.` });
+  while (pq.length > 0) {
+    pq.sort((a, b) => distances[a] - distances[b]); // Sort to get min distance node
+    const u = pq.shift();
+
+    if (!u || distances[u] === Infinity) break; // No path or remaining nodes unreachable
+
+    visited[u] = true;
+    steps.push({ type: "highlight-node", nodeId: u, color: "hsl(var(--accent))", descriptionForAI: `Node ${u} is currently being processed. Distance: ${distances[u]}.` });
+
+    const neighbors = edges.filter(edge => {
+        if (edge.source === u && !visited[edge.target]) return true;
+        if (!edge.isDirected && edge.target === u && !visited[edge.source]) return true; // For undirected edges
+        return false;
+    });
+
+    for (const edge of neighbors) {
+        const v = edge.source === u ? edge.target : edge.source;
+        const weight = edge.weight;
+        steps.push({ type: "highlight-edge", edgeId: edge.id, color: "hsl(var(--secondary))", descriptionForAI: `Considering edge ${edge.source}-${edge.target} (weight ${weight}).` });
+
+        if (distances[u] + weight < distances[v]) {
+            distances[v] = distances[u] + weight;
+            predecessors[v] = u;
+            steps.push({ type: "update-node-label", nodeId: v, label: distances[v].toString() });
+            steps.push({ type: "highlight-node", nodeId: v, color: "hsl(var(--primary))", descriptionForAI: `Distance to ${v} updated to ${distances[v]}. Predecessor: ${u}.` });
         }
-      }
-    }
-  });
-  
-  // Simulate visiting another node if available
-  const unvisitedNodes = nodes.filter(n => !visited[n.id] && distances[n.id] < Infinity);
-  if (unvisitedNodes.length > 0) {
-    const nextNodeToVisit = unvisitedNodes.sort((a,b) => distances[a.id] - distances[b.id])[0];
-    if (nextNodeToVisit) {
-        visited[nextNodeToVisit.id] = true;
-        steps.push({ type: "highlight-node", nodeId: nextNodeToVisit.id, color: "hsl(var(--accent))", descriptionForAI: `Node ${nextNodeToVisit.id} is currently being processed.` });
-         edges.forEach(edge => {
-            if (edge.source === nextNodeToVisit.id || edge.target === nextNodeToVisit.id) {
-                const neighbor = edge.source === nextNodeToVisit.id ? edge.target : edge.source;
-                 if (!visited[neighbor]) {
-                    const newDist = distances[nextNodeToVisit.id] + edge.weight;
-                    if (newDist < distances[neighbor]) {
-                        distances[neighbor] = newDist;
-                        steps.push({ type: "highlight-edge", edgeId: edge.id, color: "hsl(var(--secondary))", descriptionForAI: `Edge ${edge.source}-${edge.target} considered for relaxation.` });
-                        steps.push({ type: "update-node-label", nodeId: neighbor, label: newDist.toString() });
-                        steps.push({ type: "highlight-node", nodeId: neighbor, color: "hsl(var(--primary))", descriptionForAI: `Distance to ${neighbor} updated to ${newDist}.` });
-                    }
-                }
-            }
-        });
     }
   }
-
-  // Final highlighting step
-  steps.push({ type: "message", message: "Dijkstra's Algorithm (placeholder) complete. Final distances shown.", descriptionForAI: "Dijkstra's algorithm simulation finished. Nodes reachable from start are highlighted." });
+  
+  steps.push({ type: "message", message: "Dijkstra's Algorithm complete. Final distances shown.", descriptionForAI: "Dijkstra's algorithm finished. Nodes reachable from start are highlighted with their shortest distances. Path edges are in accent color." });
+  
+  // Highlight final paths
+  const pathEdges = new Set<string>();
   nodes.forEach(node => {
     if (distances[node.id] !== Infinity) {
       if (node.id === startNodeId) {
         steps.push({ type: "highlight-node", nodeId: node.id, color: "hsl(var(--accent))", descriptionForAI: `Start node ${node.id} remains highlighted. Final distance: ${distances[node.id]}.` });
       } else {
         steps.push({ type: "highlight-node", nodeId: node.id, color: "hsl(var(--primary))", descriptionForAI: `Node ${node.id} is reachable. Final distance: ${distances[node.id]}.` });
+        
+        // Trace back path to highlight edges
+        let curr = node.id;
+        while(predecessors[curr]) {
+            const pred = predecessors[curr]!;
+            const edge = edges.find(e => 
+                (e.source === pred && e.target === curr) || 
+                (!e.isDirected && e.source === curr && e.target === pred)
+            );
+            if (edge && !pathEdges.has(edge.id)) {
+                pathEdges.add(edge.id);
+            }
+            curr = pred;
+        }
       }
     } else {
        steps.push({ type: "highlight-node", nodeId: node.id, color: "hsl(var(--muted))", descriptionForAI: `Node ${node.id} is not reachable from the start node.` });
+       steps.push({ type: "update-node-label", nodeId: node.id, label: "∞" });
     }
   });
-  // In a real Dijkstra, you'd highlight the edges forming the shortest path tree.
-  // For this placeholder, we'll just leave edges as they were or reset them.
+
   edges.forEach(edge => {
-      const sourceDist = distances[edge.source];
-      const targetDist = distances[edge.target];
-      // A simple heuristic: if an edge connects two "reached" nodes and one is a predecessor of other in SP.
-      // This is a very rough approximation for placeholder.
-      if (sourceDist !== Infinity && targetDist !== Infinity && Math.abs(sourceDist - targetDist) === edge.weight ) {
+      if (pathEdges.has(edge.id)) {
            steps.push({ type: "highlight-edge", edgeId: edge.id, color: "hsl(var(--accent))", descriptionForAI: `Edge ${edge.source}-${edge.target} is part of a shortest path.` });
       } else {
            steps.push({ type: "highlight-edge", edgeId: edge.id, color: "hsl(var(--border))", descriptionForAI: `Edge ${edge.source}-${edge.target} is not actively part of shortest path tree.` });
       }
   });
-
 
   return steps;
 }
