@@ -16,6 +16,8 @@ interface GraphState extends Graph {
   startNode: string | null; // For Dijkstra
   messages: string[];
   currentVisualizationStateForAI: string | null;
+  nextNodeId: number;
+  nextEdgeId: number;
 }
 
 const initialState: GraphState = {
@@ -29,6 +31,8 @@ const initialState: GraphState = {
   startNode: null,
   messages: [],
   currentVisualizationStateForAI: null,
+  nextNodeId: 1,
+  nextEdgeId: 1,
 };
 
 // Constants for random graph generation
@@ -63,21 +67,20 @@ type Action =
 const graphReducer = (state: GraphState, action: Action): GraphState => {
   switch (action.type) {
     case 'ADD_NODE':
-      const newNodeId = `node-${state.nodes.length + 1}-${Date.now()}`;
-      const newNode: Node = { id: newNodeId, x: action.payload.x, y: action.payload.y, label: newNodeId.replace('node-', 'N') };
-      return { ...state, nodes: [...state.nodes, newNode], messages: [] }; // Clear messages on graph modification
+      const newNodeId = `node-${state.nextNodeId}`;
+      const newNode: Node = { id: newNodeId, x: action.payload.x, y: action.payload.y, label: `N${state.nextNodeId}` };
+      return { ...state, nodes: [...state.nodes, newNode], nextNodeId: state.nextNodeId + 1, messages: [] };
     case 'ADD_EDGE':
       if (state.edges.some(e => 
         (e.source === action.payload.source && e.target === action.payload.target) ||
-        (e.source === action.payload.target && e.target === action.payload.source && !e.isDirected) // For undirected
+        (e.source === action.payload.target && e.target === action.payload.source && !e.isDirected)
       )) {
         return { ...state, messages: [...state.messages, "Edge already exists or overlaps."] };
       }
-      const newEdgeId = `edge-${action.payload.source}-${action.payload.target}-${Date.now()}`;
-      const newEdge: Edge = { id: newEdgeId, ...action.payload, isDirected: state.selectedAlgorithm === 'dijkstra' }; // Edges are directed only for Dijkstra by default
-      return { ...state, edges: [...state.edges, newEdge], messages: [] }; // Clear messages
+      const newEdgeId = `edge-${state.nextEdgeId}`;
+      const newEdge: Edge = { id: newEdgeId, ...action.payload, isDirected: state.selectedAlgorithm === 'dijkstra' };
+      return { ...state, edges: [...state.edges, newEdge], nextEdgeId: state.nextEdgeId + 1, messages: [] };
     case 'SET_ALGORITHM':
-      // Reset edges to be undirected unless Dijkstra is selected
       const updatedEdgesForAlgo = state.edges.map(edge => ({
         ...edge,
         isDirected: action.payload === 'dijkstra'
@@ -88,7 +91,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'RUN_ALGORITHM':
       if (!state.selectedAlgorithm) return state;
       let steps: AnimationStep[] = [];
-      const currentGraph = { nodes: state.nodes, edges: state.edges.map(e => ({...e, isDirected: state.selectedAlgorithm === 'dijkstra'})) }; // Ensure edges reflect algorithm type
+      const currentGraph = { nodes: state.nodes, edges: state.edges.map(e => ({...e, isDirected: state.selectedAlgorithm === 'dijkstra'})) };
       
       if (state.selectedAlgorithm === 'dijkstra' && state.startNode) {
         steps = dijkstra(currentGraph, state.startNode);
@@ -104,7 +107,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const currentStep = state.animationSteps[nextStepIndex];
         let newNodes = [...state.nodes];
         let newEdges = [...state.edges];
-        let newMessages = [...state.messages]; // Keep existing messages, new ones are added
+        let newMessages = [...state.messages];
         let newVisStateAI = state.currentVisualizationStateForAI;
 
         if(currentStep.descriptionForAI) {
@@ -118,7 +121,6 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         } else if (currentStep.type === "update-node-label" && currentStep.nodeId) {
             newNodes = newNodes.map(n => n.id === currentStep.nodeId ? { ...n, label: currentStep.label } : n);
         } else if (currentStep.type === "message" && currentStep.message) {
-             // Add new message to the start of the array to show most recent first in UI
             newMessages = [currentStep.message, ...newMessages];
         } else if (currentStep.type === "reset-colors") {
             newNodes = newNodes.map(n => ({ ...n, color: undefined }));
@@ -130,18 +132,16 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         return { 
             ...state, 
             currentStepIndex: nextStepIndex, 
-            isAnimating: nextStepIndex < state.animationSteps.length - 1 ? state.isAnimating : false, // preserve isAnimating unless at end
+            isAnimating: nextStepIndex < state.animationSteps.length - 1 ? state.isAnimating : false,
             nodes: newNodes,
             edges: newEdges,
             messages: newMessages,
             currentVisualizationStateForAI: newVisStateAI,
         };
       }
-      // If at the end of steps, ensure isAnimating is false.
       return { ...state, isAnimating: false };
     case 'TOGGLE_ANIMATION_PLAY_PAUSE':
-      if (state.animationSteps.length === 0) return state; // No animation to play/pause
-      // If animation is at the end, and user presses play, reset and play from start.
+      if (state.animationSteps.length === 0) return state;
       if (!state.isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
         const resetNodes = state.nodes.map(n => ({ ...n, color: undefined, label: n.id.replace('node-', 'N') }));
         const resetEdges = state.edges.map(e => ({ ...e, color: undefined}));
@@ -159,14 +159,18 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_ANIMATION_SPEED':
       return { ...state, animationSpeed: action.payload };
     case 'RESET_GRAPH':
-      return { ...initialState, animationSpeed: state.animationSpeed }; // Keep speed setting
+      return { ...initialState, animationSpeed: state.animationSpeed };
     case 'RESET_ANIMATION':
+        const baseLabelForReset = (nodeId: string) => {
+            const parts = nodeId.split('-');
+            return `N${parts[parts.length -1]}`;
+        };
       return { 
         ...state, 
         currentStepIndex: -1, 
         isAnimating: false, 
         messages: [], 
-        nodes: state.nodes.map(n => ({...n, color: undefined, label: n.id.replace('node-', 'N')})),
+        nodes: state.nodes.map(n => ({...n, color: undefined, label: baseLabelForReset(n.id) })),
         edges: state.edges.map(e => ({...e, color: undefined})),
         currentVisualizationStateForAI: null,
       };
@@ -189,9 +193,13 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             edges: state.edges.map(e => ({ ...e, color: undefined })),
         };
     case 'CLEAR_NODE_LABELS':
+        const baseLabelForClear = (nodeId: string) => {
+            const parts = nodeId.split('-');
+            return `N${parts[parts.length -1]}`;
+        };
         return {
             ...state,
-            nodes: state.nodes.map(n => ({ ...n, label: n.id.replace('node-', 'N') })),
+            nodes: state.nodes.map(n => ({ ...n, label: baseLabelForClear(n.id) })),
         };
     case 'SET_VIS_STATE_AI':
         return { ...state, currentVisualizationStateForAI: action.payload };
@@ -200,9 +208,11 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const newGeneratedNodes: Node[] = [];
         const newGeneratedEdges: Edge[] = [];
 
-        // Generate nodes
+        let localNodeIdCounter = 1;
+        let localEdgeIdCounter = 1;
+
         for (let i = 0; i < numNodes; i++) {
-            const nodeId = `node-${i + 1}-${Date.now()}`;
+            const nodeId = `node-${localNodeIdCounter++}`;
             newGeneratedNodes.push({
                 id: nodeId,
                 x: NODE_RADIUS_PADDING + Math.random() * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
@@ -211,34 +221,36 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             });
         }
 
-        // Generate edges
-        // For an undirected graph, iterate i < j
         for (let i = 0; i < numNodes; i++) {
             for (let j = i + 1; j < numNodes; j++) {
                 if (Math.random() < RANDOM_EDGE_PROBABILITY) {
                     const weight = Math.floor(Math.random() * (maxWeight - minWeight + 1)) + minWeight;
-                    const edgeId = `edge-${newGeneratedNodes[i].id}-${newGeneratedNodes[j].id}-${Date.now()}`;
+                    const sourceNodeId = newGeneratedNodes[i].id;
+                    const targetNodeId = newGeneratedNodes[j].id;
+                    const edgeId = `edge-${localEdgeIdCounter++}`;
                     newGeneratedEdges.push({
                         id: edgeId,
-                        source: newGeneratedNodes[i].id,
-                        target: newGeneratedNodes[j].id,
+                        source: sourceNodeId,
+                        target: targetNodeId,
                         weight: weight,
-                        isDirected: false // Random graphs are undirected by default
+                        isDirected: false 
                     });
                 }
             }
         }
-         // Ensure edges reflect algorithm type if one is selected
-        const isDirectedEdges = state.selectedAlgorithm === 'dijkstra';
-        const finalEdges = newGeneratedEdges.map(edge => ({...edge, isDirected: isDirectedEdges }));
-
+        const isDirectedCurrentAlgo = state.selectedAlgorithm === 'dijkstra';
+        const finalEdges = newGeneratedEdges.map(edge => ({...edge, isDirected: isDirectedCurrentAlgo }));
 
         return {
-            ...initialState, // Reset most of the state
-            animationSpeed: state.animationSpeed, // Preserve user's speed setting
-            selectedAlgorithm: state.selectedAlgorithm, // Preserve selected algorithm
+            ...initialState, 
+            animationSpeed: state.animationSpeed, 
+            selectedAlgorithm: state.selectedAlgorithm, 
             nodes: newGeneratedNodes,
             edges: finalEdges,
+            nextNodeId: localNodeIdCounter, 
+            nextEdgeId: localEdgeIdCounter, 
+            messages: [`Generated random graph with ${numNodes} nodes.`],
+            currentVisualizationStateForAI: null,
         };
     }
     default:
@@ -266,3 +278,4 @@ export const useGraph = () => {
   return context;
 };
 
+    
