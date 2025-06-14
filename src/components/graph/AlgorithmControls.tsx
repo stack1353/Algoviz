@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useGraph } from '@/providers/GraphProvider';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -59,10 +59,16 @@ export function AlgorithmControls() {
     if (isAnimating) {
         dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
     } else if (animationSteps.length > 0 && currentStepIndex < animationSteps.length -1) {
+        // If paused and there are steps remaining, just step forward once.
+        // The interval effect will take over if user wants continuous play after this.
         dispatch({ type: 'ANIMATION_STEP_FORWARD' }); 
     } else if (animationSteps.length === 0){
+        // No steps loaded, probably means "Run" was not clicked or algorithm finished
+        // Let's run the algorithm.
         handleRunAlgorithm(); 
     } else {
+      // Animation is paused, at the end of steps, or no steps. User wants to play/resume.
+      // TOGGLE_ANIMATION_PLAY_PAUSE will handle re-starting from beginning if at end.
       dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); 
     }
   };
@@ -75,6 +81,7 @@ export function AlgorithmControls() {
         dispatch({ type: 'ANIMATION_STEP_FORWARD' });
       }, animationSpeed);
     } else if (isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
+      // Automatically pause when animation reaches the end
       dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); 
     }
     
@@ -273,9 +280,3 @@ export function AlgorithmControls() {
     </Card>
   );
 }
-
-// Helper for AlertDialog button styling
-const buttonVariants = ({ variant }: { variant: "destructive" | "default" | null | undefined }) => {
-  if (variant === "destructive") return "bg-destructive text-destructive-foreground hover:bg-destructive/90";
-  return "bg-primary text-primary-foreground hover:bg-primary/90";
-};

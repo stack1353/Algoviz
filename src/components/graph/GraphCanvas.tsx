@@ -42,27 +42,45 @@ export function GraphCanvas() {
     const pt = svgRef.current.createSVGPoint();
     pt.x = event.clientX;
     pt.y = event.clientY;
-    const svgPoint = pt.matrixTransform(svgRef.current.getScreenCTM()?.inverse());
-    // Adjust for current scale
+    
+    // Get the CTM (Current Transformation Matrix) of the SVG element itself
+    let ctm = svgRef.current.getScreenCTM();
+    if (!ctm) return null; // Should not happen in normal circumstances
+
+    // If a scaled group (<g transform="scale(...)">) is the direct child,
+    // we need to account for its transformation if we want coordinates relative to that group's parent (the SVG).
+    // However, for adding nodes, we want coordinates *within* the scaled group if it exists,
+    // or within the SVG if it doesn't.
+    // The current setup applies scale to a <g> element. We want coordinates *as if* there was no scale on the <g>,
+    // but the click event is on the SVG.
+    
+    // The pt.matrixTransform(ctm.inverse()) gives coordinates relative to the SVG viewport.
+    // If we have a <g transform="scale(S)"> inside, and we want to place a node at (x',y') *within* that g,
+    // such that its visual position matches the click, then x' = svg_click_x / S, y' = svg_click_y / S.
+
+    const svgPoint = pt.matrixTransform(ctm.inverse());
+
+    // If we are transforming a <g> element inside the SVG by `scale`:
+    // The coordinates from svgPoint are in the SVG's coordinate system.
+    // To get coordinates for elements *inside* the scaled <g>, we divide by scale.
     return { x: svgPoint.x / scale, y: svgPoint.y / scale };
   };
 
+
   const handleCanvasClick = (event: React.MouseEvent<SVGSVGElement>) => {
-    if (event.target !== svgRef.current && (event.target as SVGElement)?.closest('g[data-element-type="graph-content"]') !== null) {
-        // if click is on the <g> wrapper, but not nodes/edges directly
-         if (event.target === event.currentTarget.querySelector('g[data-element-type="graph-content"]')) {
-            // fall through to add node
-         } else {
-            // Click was on a node or edge or other element inside the scaled group
-            return;
-         }
+     // Check if the click target is the SVG itself or the main <g> element (for background clicks)
+    if (event.target !== svgRef.current && (event.target as SVGGElement).dataset?.elementType !== 'graph-content') {
+        // Click was on a node, edge, or other element, not the canvas background
+        return;
     }
     
     const coords = getSVGCoordinates(event);
     if (coords) {
       dispatch({ type: 'ADD_NODE', payload: { x: coords.x, y: coords.y } });
       setTempEdgeStartNode(null); 
-      // ADD_NODE action now selects the new node, so no need to dispatch SET_SELECTED_NODE(null) here
+      // ADD_NODE action now selects the new node.
+      // If we wanted to deselect on canvas click, we'd dispatch SET_SELECTED_NODE(null) here.
+      // For now, clicking canvas adds a node and selects it.
     }
   };
 
@@ -77,11 +95,31 @@ export function GraphCanvas() {
       // Position popover near the midpoint of the potential edge
       const x = (tempEdgeStartNode.x + node.x) / 2 * scale;
       const y = (tempEdgeStartNode.y + node.y) / 2 * scale;
-      // This logic for popover positioning might need refinement with scaled SVG
+      
       const popoverTrigger = document.getElementById('edge-weight-popover-trigger');
-      if (popoverTrigger) {
-          popoverTrigger.style.left = `${x}px`;
-          popoverTrigger.style.top = `${y}px`;
+      if (popoverTrigger && svgRef.current) {
+          // We need to translate the logical SVG coordinates to screen coordinates for the popover
+          const svgRect = svgRef.current.getBoundingClientRect();
+
+          // Midpoint in SVG's scaled coordinate system
+          let midX_svg = (tempEdgeStartNode.x + node.x) / 2;
+          let midY_svg = (tempEdgeStartNode.y + node.y) / 2;
+          
+          // Apply scale to get "visual" coordinates within the unscaled SVG viewport space
+          midX_svg *= scale;
+          midY_svg *= scale;
+
+          // Create an SVGPoint for transformation
+          const pt = svgRef.current.createSVGPoint();
+          pt.x = midX_svg;
+          pt.y = midY_svg;
+          
+          // Transform this point to screen coordinates
+          const screenPoint = pt.matrixTransform(svgRef.current.getScreenCTM()!);
+          
+          popoverTrigger.style.position = 'fixed'; // Ensure it's relative to viewport
+          popoverTrigger.style.left = `${screenPoint.x}px`;
+          popoverTrigger.style.top = `${screenPoint.y}px`;
       }
       setIsWeightPopoverOpen(true);
     } else { // Clicked same node again
@@ -108,7 +146,7 @@ export function GraphCanvas() {
 
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     if (tempEdgeStartNode) {
-      const coords = getSVGCoordinates(event); // Already adjusted for scale
+      const coords = getSVGCoordinates(event); 
       if (coords) setMousePosition(coords);
     }
   };
@@ -152,14 +190,16 @@ export function GraphCanvas() {
             viewBox="0 0 10 10"
             refX="10" 
             refY="5"
-            markerWidth="4"
+            markerWidth="4" // Keeps arrow size consistent regardless of zoom
             markerHeight="4"
             orient="auto-start-reverse"
+            markerUnits="strokeWidth" // Make marker scale with stroke if desired, or userSpaceOnUse for fixed
           >
             <path d="M 0 0 L 10 5 L 0 10 z" fill={EDGE_DEFAULT_COLOR} />
           </marker>
         </defs>
         
+        {/* This 'g' element will handle the zooming and panning */}
         <g transform={`scale(${scale})`} data-element-type="graph-content">
           {edges.map(edge => {
             const sourceNode = getNodeById(edge.source);
@@ -170,16 +210,20 @@ export function GraphCanvas() {
             const dy = targetNode.y - sourceNode.y;
             const dist = Math.sqrt(dx * dx + dy * dy);
             
-            const arrowOffset = edge.isDirected ? 6 / scale : 0; // Adjust arrow offset based on scale for consistent appearance
-            const nodeRadiusScaled = NODE_RADIUS; 
+            // Adjust arrow offset to be visually consistent at different zoom levels
+            const arrowHeadSize = 8; // Fixed visual size for arrowhead logic
+            const arrowOffset = edge.isDirected ? arrowHeadSize / scale : 0; 
+            const nodeRadiusScaled = NODE_RADIUS; // Node radius is in unscaled coordinates
 
-            const ratio = (dist - nodeRadiusScaled - arrowOffset) / dist; 
-            const targetX = sourceNode.x + dx * ratio;
-            const targetY = sourceNode.y + dy * ratio;
+            // Calculate new start and end points for the line to avoid overlapping the node circle
+            // And to make space for the arrowhead
+            const ratioSource = nodeRadiusScaled / dist;
+            const ratioTarget = (dist - nodeRadiusScaled - arrowOffset) / dist; 
             
-            const sourceRatio = nodeRadiusScaled / dist;
-            const sourceX = sourceNode.x + dx * sourceRatio;
-            const sourceY = sourceNode.y + dy * sourceRatio;
+            const sourceX = sourceNode.x + dx * ratioSource;
+            const sourceY = sourceNode.y + dy * ratioSource;
+            const targetX = sourceNode.x + dx * ratioTarget;
+            const targetY = sourceNode.y + dy * ratioTarget;
 
             return (
               <g key={edge.id}>
@@ -189,16 +233,17 @@ export function GraphCanvas() {
                   x2={targetX}
                   y2={targetY}
                   stroke={edge.color || EDGE_DEFAULT_COLOR}
-                  strokeWidth={2 / scale} // Make stroke thinner as you zoom in
+                  strokeWidth={Math.max(0.5, 2 / scale)} // Ensure stroke doesn't become too thin or disappear
                   markerEnd={edge.isDirected ? "url(#arrow)" : undefined}
                 />
                 <text
                   x={(sourceNode.x + targetNode.x) / 2}
                   y={(sourceNode.y + targetNode.y) / 2 - (5 / scale)}
                   fill={EDGE_WEIGHT_COLOR}
-                  fontSize={12 / scale} // Adjust font size with zoom
+                  fontSize={Math.max(6, 12 / scale)} // Ensure font size is readable
                   textAnchor="middle"
                   pointerEvents="none"
+                  dy=".3em" // Better vertical alignment
                 >
                   {edge.weight}
                 </text>
@@ -213,29 +258,30 @@ export function GraphCanvas() {
               x2={mousePosition.x}
               y2={mousePosition.y}
               stroke={EDGE_DEFAULT_COLOR}
-              strokeWidth={2 / scale}
-              strokeDasharray={`${5/scale},${5/scale}`}
+              strokeWidth={Math.max(0.5, 2 / scale)}
+              strokeDasharray={`${Math.max(1, 5/scale)},${Math.max(1, 5/scale)}`} // Ensure dash is visible
             />
           )}
 
           {nodes.map(node => (
-            <g key={node.id} onClick={(e) => handleNodeClick(node, e)} className="cursor-pointer">
+            <g key={node.id} onClick={(e) => handleNodeClick(node, e)} className="cursor-pointer" data-element-type="node">
               <circle
                 cx={node.x}
                 cy={node.y}
-                r={NODE_RADIUS}
+                r={NODE_RADIUS} // Radius is in unscaled coordinates
                 fill={node.color || (selectedNodeId === node.id ? NODE_SELECTED_COLOR : (tempEdgeStartNode?.id === node.id ? NODE_TEMP_EDGE_START_COLOR : NODE_DEFAULT_COLOR))}
                 stroke="hsl(var(--border))"
-                strokeWidth={1 / scale}
+                strokeWidth={Math.max(0.5, 1 / scale)} // Adjust stroke width with zoom
               />
               <text
                 x={node.x}
-                y={node.y + (5 / scale)} 
+                y={node.y} 
                 textAnchor="middle"
                 fill={NODE_LABEL_COLOR}
-                fontSize={12 / scale} 
+                fontSize={Math.max(6, 12 / scale)} 
                 fontWeight="bold"
                 pointerEvents="none" 
+                dy=".3em" // Better vertical centering of text
               >
                 {node.label || node.id.replace('node-', 'N')}
               </text>
@@ -255,7 +301,8 @@ export function GraphCanvas() {
         }}
       >
         <PopoverTrigger asChild>
-          <button id="edge-weight-popover-trigger" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} />
+          {/* This button is positioned dynamically using JavaScript */}
+          <button id="edge-weight-popover-trigger" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width:1, height:1 }} />
         </PopoverTrigger>
         <PopoverContent className="w-60">
           <div className="grid gap-4">
@@ -295,7 +342,7 @@ export function GraphCanvas() {
       </div>
 
       <div className="absolute bottom-2 left-2 p-2 bg-card/80 rounded border border-border text-xs text-muted-foreground">
-        Click to add node. Click two nodes to add an edge. Selected: {selectedNodeId ? (nodes.find(n=>n.id === selectedNodeId)?.label || selectedNodeId) : 'None'}
+        Click to add node. Click two nodes to add an edge. Selected: {selectedNodeId ? (nodes.find(n=>n.id === selectedNodeId)?.label || selectedNodeId.replace('node-','N')) : 'None'}
       </div>
     </div>
   );

@@ -245,17 +245,24 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const newGeneratedNodes: Node[] = [];
         let newGeneratedEdges: Edge[] = [];
 
-        let localNodeIdCounter = 1;
-        let localEdgeIdCounter = 1;
+        let localNodeIdCounter = state.nextNodeId; // Use current counter to avoid ID collisions if mixing manual and random
+        let localEdgeIdCounter = state.nextEdgeId;
+
+        // Reset graph but keep counters going if we are adding to existing graph setup
+        // For now, let's assume CREATE_RANDOM_GRAPH means a full new graph.
+        // If we want to add to existing, we'd remove the ...initialState spread.
+        
+        const baseIdForRandom = state.nextNodeId; // Keep track of starting ID for new nodes
 
         for (let i = 0; i < numNodes; i++) {
-            const nodeId = `node-${localNodeIdCounter++}`;
+            const nodeId = `node-${localNodeIdCounter}`;
             newGeneratedNodes.push({
                 id: nodeId,
                 x: NODE_RADIUS_PADDING + Math.random() * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
                 y: NODE_RADIUS_PADDING + Math.random() * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
-                label: `N${i + 1}`
+                label: `N${localNodeIdCounter}` // Label uses the global counter
             });
+            localNodeIdCounter++;
         }
 
         // Ensure connectivity by creating a path/cycle through all nodes
@@ -264,7 +271,6 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
                 const sourceNodeId = newGeneratedNodes[i].id;
                 const targetNodeId = newGeneratedNodes[(i + 1) % numNodes].id; // Connect to next, or last to first for a cycle
                 
-                // Avoid duplicate if already connected (for cycle forming on last node)
                 const edgeExists = newGeneratedEdges.some(e => 
                     (e.source === sourceNodeId && e.target === targetNodeId) ||
                     (e.source === targetNodeId && e.target === sourceNodeId)
@@ -314,9 +320,13 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const finalEdges = newGeneratedEdges.map(edge => ({...edge, isDirected: isDirectedCurrentAlgo }));
 
         return {
+            // Spread initial state to ensure a clean slate for the new graph, but preserve some settings
             ...initialState, 
             animationSpeed: state.animationSpeed, 
-            selectedAlgorithm: state.selectedAlgorithm, 
+            selectedAlgorithm: state.selectedAlgorithm,
+            // Start node might need to be cleared or re-evaluated if it was set
+            startNode: null, // Clear start node as graph is new
+
             nodes: newGeneratedNodes,
             edges: finalEdges,
             nextNodeId: localNodeIdCounter, 
@@ -350,3 +360,4 @@ export const useGraph = () => {
   }
   return context;
 };
+
