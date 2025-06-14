@@ -1,6 +1,6 @@
 
 import { ApplicationCard } from "@/components/ApplicationCard";
-import { CardDescription, CardHeader, CardTitle }_ from "@/components/ui/card";
+import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const applications = [
   {

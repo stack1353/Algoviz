@@ -8,15 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, RotateCcw, Zap, StepForward, FastForward } from 'lucide-react';
+import { Play, Pause, RotateCcw, Zap, StepForward, FastForward, Shuffle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContextualHelpDialog } from '@/components/ai/ContextualHelpDialog';
 import type { AlgorithmType } from '@/types/graph';
+import { Separator } from '@/components/ui/separator';
+import { toast } from '@/hooks/use-toast';
 
 export function AlgorithmControls() {
   const { state, dispatch } = useGraph();
   const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex } = state;
   const [localStartNode, setLocalStartNode] = useState('');
+
+  const [numRandomNodes, setNumRandomNodes] = useState<string>("8");
+  const [minRandomWeight, setMinRandomWeight] = useState<string>("1");
+  const [maxRandomWeight, setMaxRandomWeight] = useState<string>("10");
+
 
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
@@ -27,7 +34,7 @@ export function AlgorithmControls() {
     dispatch({ type: 'CLEAR_NODE_LABELS' });
     dispatch({ type: 'CLEAR_MESSAGES' });
     if (selectedAlgorithm === 'dijkstra' && !localStartNode) {
-      alert("Please select a start node for Dijkstra's algorithm.");
+       toast({ title: "Missing Start Node", description: "Please select a start node for Dijkstra's algorithm.", variant: "destructive" });
       return;
     }
     if (selectedAlgorithm === 'dijkstra') {
@@ -38,14 +45,14 @@ export function AlgorithmControls() {
   
   const handleAnimationToggle = () => {
     if (isAnimating) {
-        // This would effectively pause if animation is driven by external timer
-        // For now, we just toggle a conceptual 'isAnimating' state or re-run
-        // A true pause/resume needs timer management in GraphProvider
-        dispatch({ type: 'ANIMATION_STEP_FORWARD' }); // Placeholder action
+        dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
     } else if (animationSteps.length > 0 && currentStepIndex < animationSteps.length -1) {
-        dispatch({ type: 'ANIMATION_STEP_FORWARD' }); // To resume or step
+        dispatch({ type: 'ANIMATION_STEP_FORWARD' }); 
     } else if (animationSteps.length === 0){
-        handleRunAlgorithm(); // If no animation has started, run it
+        handleRunAlgorithm(); 
+    } else {
+      // Animation is paused at the end, effectively do nothing or allow re-run
+      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); // to start if they want to restart animation steps
     }
   };
   
@@ -56,9 +63,11 @@ export function AlgorithmControls() {
       animationInterval = setInterval(() => {
         dispatch({ type: 'ANIMATION_STEP_FORWARD' });
       }, animationSpeed);
-    } else if (animationInterval) {
-      clearInterval(animationInterval);
+    } else if (isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
+      // Reached end of animation, stop animating
+      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); // This will set isAnimating to false
     }
+    
     return () => {
       if (animationInterval) clearInterval(animationInterval);
     };
@@ -74,12 +83,38 @@ export function AlgorithmControls() {
     dispatch({ type: 'RESET_ANIMATION' });
   };
 
+  const handleGenerateRandomGraph = () => {
+    const numNodesVal = parseInt(numRandomNodes, 10);
+    const minWeightVal = parseInt(minRandomWeight, 10);
+    const maxWeightVal = parseInt(maxRandomWeight, 10);
+
+    if (isNaN(numNodesVal) || numNodesVal <= 1 || numNodesVal > 50) {
+      toast({ title: "Invalid Node Count", description: "Number of nodes must be between 2 and 50.", variant: "destructive" });
+      return;
+    }
+    if (isNaN(minWeightVal) || minWeightVal <= 0) {
+      toast({ title: "Invalid Min Weight", description: "Minimum weight must be a positive number.", variant: "destructive" });
+      return;
+    }
+    if (isNaN(maxWeightVal) || maxWeightVal <= 0) {
+      toast({ title: "Invalid Max Weight", description: "Maximum weight must be a positive number.", variant: "destructive" });
+      return;
+    }
+    if (minWeightVal > maxWeightVal) {
+      toast({ title: "Invalid Weight Range", description: "Minimum weight cannot exceed maximum weight.", variant: "destructive" });
+      return;
+    }
+
+    dispatch({ type: 'CREATE_RANDOM_GRAPH', payload: { numNodes: numNodesVal, minWeight: minWeightVal, maxWeight: maxWeightVal } });
+    toast({ title: "Graph Generated", description: `Generated a random graph with ${numNodesVal} nodes.` });
+  };
+
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
         <CardTitle className="text-xl font-headline">Controls</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="algorithm-select">Algorithm</Label>
           <Select
@@ -103,6 +138,7 @@ export function AlgorithmControls() {
             <Select
               value={localStartNode || undefined}
               onValueChange={(value) => setLocalStartNode(value)}
+              disabled={nodes.length === 0}
             >
               <SelectTrigger id="start-node">
                 <SelectValue placeholder="Select Start Node" />
@@ -131,12 +167,12 @@ export function AlgorithmControls() {
         </div>
         
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={handleRunAlgorithm} disabled={!selectedAlgorithm || isAnimating}>
+          <Button onClick={handleRunAlgorithm} disabled={!selectedAlgorithm || (animationSteps.length > 0 && isAnimating)}>
             <Play className="mr-2 h-4 w-4" /> Run
           </Button>
-           <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0 && !isAnimating}>
+           <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0}>
             {isAnimating ? <Pause className="mr-2 h-4 w-4" /> : <StepForward className="mr-2 h-4 w-4" />}
-            {isAnimating ? "Pause" : (currentStepIndex < animationSteps.length -1 && currentStepIndex !== -1 ? "Next Step" : "Step")}
+            {isAnimating ? "Pause" : (currentStepIndex < animationSteps.length -1 && currentStepIndex !== -1 ? "Next Step" : "Play Steps")}
           </Button>
         </div>
          <div className="grid grid-cols-2 gap-2">
@@ -148,6 +184,49 @@ export function AlgorithmControls() {
           </Button>
         </div>
         <ContextualHelpDialog />
+
+        <Separator className="my-4" />
+
+        <div className="space-y-3">
+          <h3 className="text-md font-semibold font-headline">Random Graph Generator</h3>
+          <div className="space-y-1">
+            <Label htmlFor="num-random-nodes">Number of Nodes (2-50)</Label>
+            <Input 
+              id="num-random-nodes" 
+              type="number" 
+              value={numRandomNodes} 
+              onChange={(e) => setNumRandomNodes(e.target.value)}
+              min="2"
+              max="50"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label htmlFor="min-random-weight">Min Weight</Label>
+              <Input 
+                id="min-random-weight" 
+                type="number" 
+                value={minRandomWeight} 
+                onChange={(e) => setMinRandomWeight(e.target.value)}
+                min="1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="max-random-weight">Max Weight</Label>
+              <Input 
+                id="max-random-weight" 
+                type="number" 
+                value={maxRandomWeight} 
+                onChange={(e) => setMaxRandomWeight(e.target.value)}
+                min="1"
+              />
+            </div>
+          </div>
+          <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary">
+            <Shuffle className="mr-2 h-4 w-4" /> Generate Random Graph
+          </Button>
+        </div>
+
       </CardContent>
     </Card>
   );
