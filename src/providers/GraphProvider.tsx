@@ -64,7 +64,8 @@ type Action =
   | { type: 'RESET_NODE_EDGE_VISUALS' }
   | { type: 'CLEAR_NODE_LABELS' }
   | { type: 'SET_VIS_STATE_AI', payload: string | null }
-  | { type: 'CREATE_RANDOM_GRAPH'; payload: { numNodes: number; minWeight: number; maxWeight: number } };
+  | { type: 'CREATE_RANDOM_GRAPH'; payload: { numNodes: number; minWeight: number; maxWeight: number } }
+  | { type: 'SET_EXTRACTED_GRAPH'; payload: { nodes: Node[]; edges: Edge[]; nextNodeId: number; nextEdgeId: number } };
 
 
 const graphReducer = (state: GraphState, action: Action): GraphState => {
@@ -78,6 +79,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nextNodeId: state.nextNodeId + 1, 
         messages: [],
         selectedNodeId: newNodeId, 
+        animationSteps: [], currentStepIndex: -1, isAnimating: false, // Reset animation on graph change
       };
     case 'ADD_EDGE':
       if (state.edges.some(e => 
@@ -99,7 +101,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         edges: [...state.edges, newEdge], 
         nextEdgeId: state.nextEdgeId + 1, 
         messages: [],
-        selectedNodeId: null, 
+        selectedNodeId: null,
+        animationSteps: [], currentStepIndex: -1, isAnimating: false, // Reset animation on graph change
       };
     case 'DELETE_NODE': {
       const { nodeId } = action.payload;
@@ -127,14 +130,12 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_SELECTED_NODE':
       return { ...state, selectedNodeId: action.payload };
     case 'SET_ALGORITHM':
-      // No longer changing edge directionality here. Algorithms will interpret.
       return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null };
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
     case 'RUN_ALGORITHM':
       if (!state.selectedAlgorithm) return state;
       let steps: AnimationStep[] = [];
-      // Algorithms will now receive the graph with edges as they are (user-defined directionality)
       const currentGraph = { nodes: state.nodes, edges: state.edges }; 
       
       if (state.selectedAlgorithm === 'dijkstra' && state.startNode) {
@@ -249,8 +250,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const newGeneratedNodes: Node[] = [];
         let newGeneratedEdges: Edge[] = [];
 
-        let localNodeIdCounter = state.nextNodeId; 
-        let localEdgeIdCounter = state.nextEdgeId;
+        let localNodeIdCounter = 1; // Start fresh from 1 for random graphs
+        let localEdgeIdCounter = 1;
         
         for (let i = 0; i < numNodes; i++) {
             const nodeId = `node-${localNodeIdCounter}`;
@@ -281,7 +282,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
                         source: sourceNodeId,
                         target: targetNodeId,
                         weight: weight,
-                        isDirected: false // Random graphs are undirected by default
+                        isDirected: false 
                     });
                 }
             }
@@ -306,7 +307,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
                             source: sourceNodeId,
                             target: targetNodeId,
                             weight: weight,
-                            isDirected: false // Random graphs are undirected by default
+                            isDirected: false
                         });
                     }
                 }
@@ -318,14 +319,31 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             animationSpeed: state.animationSpeed, 
             selectedAlgorithm: state.selectedAlgorithm,
             startNode: null, 
-
             nodes: newGeneratedNodes,
             edges: newGeneratedEdges,
             nextNodeId: localNodeIdCounter, 
             nextEdgeId: localEdgeIdCounter, 
-            messages: [`Generated random graph with ${numNodes} nodes. All nodes are connected.`],
+            messages: [`Generated random graph with ${numNodes} nodes.`],
             currentVisualizationStateForAI: null,
             selectedNodeId: null,
+        };
+    }
+    case 'SET_EXTRACTED_GRAPH': {
+        const { nodes: extractedNodes, edges: extractedEdges, nextNodeId: newNextNodeId, nextEdgeId: newNextEdgeId } = action.payload;
+        return {
+            ...initialState, // Reset most state like a new graph
+            animationSpeed: state.animationSpeed,
+            selectedAlgorithm: state.selectedAlgorithm, // Keep selected algorithm
+            nodes: extractedNodes,
+            edges: extractedEdges,
+            nextNodeId: newNextNodeId,
+            nextEdgeId: newNextEdgeId,
+            messages: [`Graph extracted from image with ${extractedNodes.length} nodes and ${extractedEdges.length} edges.`],
+            currentVisualizationStateForAI: "Graph loaded from image.",
+            selectedNodeId: null,
+            isAnimating: false,
+            currentStepIndex: -1,
+            animationSteps: [],
         };
     }
     default:

@@ -1,17 +1,17 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { useGraph } from '@/providers/GraphProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
-import { Play, Pause, RotateCcw, Zap, StepForward, Shuffle, Trash2 } from 'lucide-react';
+import { Play, Pause, RotateCcw, Zap, StepForward, Shuffle, Trash2, ImageUp, BrainCircuit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ContextualHelpDialog } from '@/components/ai/ContextualHelpDialog';
-import type { AlgorithmType } from '@/types/graph';
+import type { AlgorithmType, Node as GraphNode, Edge as GraphEdge } from '@/types/graph';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 import {
@@ -25,15 +25,26 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { extractGraphFromImage, type ExtractGraphFromImageInput, type ExtractGraphFromImageOutput, type ExtractedNode, type ExtractedEdge } from '@/ai/flows/extract-graph-from-image-flow';
+import { Loader } from '@/components/ui/loader';
+
+// Constants from GraphProvider for scaling
+const RANDOM_GRAPH_CANVAS_WIDTH = 760; 
+const RANDOM_GRAPH_CANVAS_HEIGHT = 560; 
+const NODE_RADIUS_PADDING = 40;
+
 
 export function AlgorithmControls() {
   const { state, dispatch } = useGraph();
-  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId } = state;
+  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId, nextNodeId: currentNextNodeId, nextEdgeId: currentNextEdgeId } = state;
   const [localStartNode, setLocalStartNode] = useState('');
 
   const [numRandomNodes, setNumRandomNodes] = useState<string>("8");
   const [minRandomWeight, setMinRandomWeight] = useState<string>("1");
   const [maxRandomWeight, setMaxRandomWeight] = useState<string>("10");
+
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [isExtractingGraph, setIsExtractingGraph] = useState(false);
 
 
   useEffect(() => {
@@ -59,16 +70,10 @@ export function AlgorithmControls() {
     if (isAnimating) {
         dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
     } else if (animationSteps.length > 0 && currentStepIndex < animationSteps.length -1) {
-        // If paused and there are steps remaining, just step forward once.
-        // The interval effect will take over if user wants continuous play after this.
         dispatch({ type: 'ANIMATION_STEP_FORWARD' }); 
     } else if (animationSteps.length === 0){
-        // No steps loaded, probably means "Run" was not clicked or algorithm finished
-        // Let's run the algorithm.
         handleRunAlgorithm(); 
     } else {
-      // Animation is paused, at the end of steps, or no steps. User wants to play/resume.
-      // TOGGLE_ANIMATION_PLAY_PAUSE will handle re-starting from beginning if at end.
       dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); 
     }
   };
@@ -81,7 +86,6 @@ export function AlgorithmControls() {
         dispatch({ type: 'ANIMATION_STEP_FORWARD' });
       }, animationSpeed);
     } else if (isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
-      // Automatically pause when animation reaches the end
       dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }); 
     }
     
@@ -94,6 +98,7 @@ export function AlgorithmControls() {
   const handleResetGraph = () => {
     dispatch({ type: 'RESET_GRAPH' });
     setLocalStartNode('');
+    setSelectedImageFile(null);
   };
   
   const handleResetAnimation = () => {
@@ -105,7 +110,7 @@ export function AlgorithmControls() {
     const minWeightVal = parseInt(minRandomWeight, 10);
     const maxWeightVal = parseInt(maxRandomWeight, 10);
 
-    if (isNaN(numNodesVal) || numNodesVal <= 1 || numNodesVal > 50) {
+    if (isNaN(numNodesVal) || numNodesVal < 2 || numNodesVal > 50) {
       toast({ title: "Invalid Node Count", description: "Number of nodes must be between 2 and 50.", variant: "destructive" });
       return;
     }
@@ -124,6 +129,7 @@ export function AlgorithmControls() {
 
     dispatch({ type: 'CREATE_RANDOM_GRAPH', payload: { numNodes: numNodesVal, minWeight: minWeightVal, maxWeight: maxWeightVal } });
     toast({ title: "Graph Generated", description: `Generated a random graph with ${numNodesVal} nodes.` });
+    setSelectedImageFile(null);
   };
 
   const handleDeleteSelectedNode = () => {
@@ -134,6 +140,93 @@ export function AlgorithmControls() {
       toast({ title: "No Node Selected", description: "Click on a node in the canvas to select it for deletion.", variant: "destructive"});
     }
   };
+
+  const handleImageFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setSelectedImageFile(event.target.files[0]);
+    } else {
+      setSelectedImageFile(null);
+    }
+  };
+
+  const handleExtractGraph = async () => {
+    if (!selectedImageFile) {
+      toast({ title: "No Image Selected", description: "Please select an image file first.", variant: "destructive" });
+      return;
+    }
+
+    setIsExtractingGraph(true);
+    toast({ title: "Processing Image", description: "AI is analyzing the graph image. This may take a moment..." });
+
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(selectedImageFile);
+      reader.onload = async () => {
+        const imageDataUri = reader.result as string;
+        const input: ExtractGraphFromImageInput = { imageDataUri };
+        const aiOutput: ExtractGraphFromImageOutput = await extractGraphFromImage(input);
+
+        if (aiOutput.error || !aiOutput.nodes || aiOutput.nodes.length === 0) {
+          toast({ title: "AI Extraction Failed", description: aiOutput.error || "Could not extract a graph from the image.", variant: "destructive" });
+          setIsExtractingGraph(false);
+          return;
+        }
+
+        // Process AI output
+        const newNodes: GraphNode[] = [];
+        const newEdges: GraphEdge[] = [];
+        const aiIdToInternalIdMap = new Map<string, string>();
+        let nodeIdCounter = currentNextNodeId;
+        let edgeIdCounter = currentNextEdgeId;
+
+        aiOutput.nodes.forEach((aiNode: ExtractedNode) => {
+          const internalNodeId = `node-${nodeIdCounter++}`;
+          aiIdToInternalIdMap.set(aiNode.id, internalNodeId);
+          newNodes.push({
+            id: internalNodeId,
+            label: aiNode.label || `N${nodeIdCounter-1}`,
+            // Scale normalized coordinates to canvas dimensions
+            // Subtract padding because random graph also does, then add it. Or just scale within drawable area.
+            x: NODE_RADIUS_PADDING + aiNode.x * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
+            y: NODE_RADIUS_PADDING + aiNode.y * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
+          });
+        });
+        
+        aiOutput.edges.forEach((aiEdge: ExtractedEdge) => {
+          const sourceInternalId = aiIdToInternalIdMap.get(aiEdge.sourceId);
+          const targetInternalId = aiIdToInternalIdMap.get(aiEdge.targetId);
+
+          if (sourceInternalId && targetInternalId) {
+            newEdges.push({
+              id: `edge-${edgeIdCounter++}`,
+              source: sourceInternalId,
+              target: targetInternalId,
+              weight: aiEdge.weight !== undefined && aiEdge.weight > 0 ? aiEdge.weight : 1, // Default weight 1 if not provided or invalid
+              isDirected: aiEdge.isDirected || false, // Default to undirected
+            });
+          } else {
+            console.warn(`Skipping edge due to missing node mapping: ${aiEdge.sourceId} -> ${aiEdge.targetId}`);
+          }
+        });
+        
+        dispatch({ type: 'SET_EXTRACTED_GRAPH', payload: { nodes: newNodes, edges: newEdges, nextNodeId: nodeIdCounter, nextEdgeId: edgeIdCounter } });
+        toast({ title: "Graph Extracted!", description: `Successfully processed the image and generated a graph with ${newNodes.length} nodes and ${newEdges.length} edges.` });
+        setSelectedImageFile(null); // Clear selection after processing
+      };
+      reader.onerror = (error) => {
+        console.error("Error reading file:", error);
+        toast({ title: "File Read Error", description: "Could not read the image file.", variant: "destructive" });
+        setIsExtractingGraph(false);
+      };
+    } catch (e) {
+      console.error("Error extracting graph:", e);
+      const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during AI processing.";
+      toast({ title: "AI Extraction Error", description: errorMessage, variant: "destructive" });
+    } finally {
+      setIsExtractingGraph(false);
+    }
+  };
+
 
   return (
     <Card className="w-full shadow-lg">
@@ -147,7 +240,7 @@ export function AlgorithmControls() {
             value={selectedAlgorithm || undefined}
             onValueChange={(value) => dispatch({ type: 'SET_ALGORITHM', payload: value as AlgorithmType })}
           >
-            <SelectTrigger id="algorithm-select">
+            <SelectTrigger id="algorithm-select" suppressHydrationWarning>
               <SelectValue placeholder="Select Algorithm" />
             </SelectTrigger>
             <SelectContent>
@@ -166,7 +259,7 @@ export function AlgorithmControls() {
               onValueChange={(value) => setLocalStartNode(value)}
               disabled={nodes.length === 0}
             >
-              <SelectTrigger id="start-node">
+              <SelectTrigger id="start-node" suppressHydrationWarning>
                 <SelectValue placeholder="Select Start Node" />
               </SelectTrigger>
               <SelectContent>
@@ -235,6 +328,27 @@ export function AlgorithmControls() {
         <ContextualHelpDialog />
 
         <Separator className="my-4" />
+        
+        <div className="space-y-3">
+          <h3 className="text-md font-semibold font-headline">Image to Graph (Experimental)</h3>
+           <div className="space-y-1">
+            <Label htmlFor="image-upload">Upload Graph Image</Label>
+            <Input 
+              id="image-upload" 
+              type="file" 
+              accept="image/png, image/jpeg, image/webp"
+              onChange={handleImageFileChange}
+              className="text-sm"
+            />
+            {selectedImageFile && <p className="text-xs text-muted-foreground">Selected: {selectedImageFile.name}</p>}
+          </div>
+          <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph}>
+            {isExtractingGraph ? <Loader size={16} className="mr-2"/> : <BrainCircuit className="mr-2 h-4 w-4" />}
+            Process Image to Graph
+          </Button>
+        </div>
+
+        <Separator className="my-4" />
 
         <div className="space-y-3">
           <h3 className="text-md font-semibold font-headline">Random Graph Generator</h3>
@@ -280,3 +394,4 @@ export function AlgorithmControls() {
     </Card>
   );
 }
+
