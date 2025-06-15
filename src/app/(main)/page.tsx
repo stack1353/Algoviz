@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ const features = [
     icon: DraftingCompass,
     title: "Create Your Graph",
     description: "Manually draw nodes and edges, set weights, and visualize algorithms step-by-step on your custom graph.",
-    link: "/editor",
+    link: "/editor?mode=draw",
     buttonText: "Start Drawing",
     aiHint: "drafting tools"
   },
@@ -16,7 +17,7 @@ const features = [
     icon: ImageUp,
     title: "Graph from Image",
     description: "Upload an image of a graph (e.g., from a textbook or whiteboard) and let AI extract its structure for visualization.",
-    link: "/editor", 
+    link: "/editor?mode=image", 
     buttonText: "Analyze Image",
     aiHint: "image upload"
   },
@@ -24,7 +25,7 @@ const features = [
     icon: Shuffle,
     title: "Generate Random Graph",
     description: "Quickly generate a random graph with a specified number of nodes and edge weight ranges to explore algorithms immediately.",
-    link: "/editor", 
+    link: "/editor?mode=random", 
     buttonText: "Generate Graph",
     aiHint: "random dice"
   },

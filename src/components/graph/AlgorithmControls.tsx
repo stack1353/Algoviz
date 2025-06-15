@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect, ChangeEvent } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useGraph } from '@/providers/GraphProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -25,6 +26,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 import { extractGraphFromImage, type ExtractGraphFromImageInput, type ExtractGraphFromImageOutput, type ExtractedNode, type ExtractedEdge } from '@/ai/flows/extract-graph-from-image-flow';
 import { Loader } from '@/components/ui/loader';
 
@@ -49,6 +56,20 @@ export function AlgorithmControls() {
 
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
+
+  const searchParams = useSearchParams();
+  const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'image') {
+      setActiveAccordionItem('image-graph');
+    } else if (mode === 'random') {
+      setActiveAccordionItem('random-graph');
+    } else {
+      setActiveAccordionItem(undefined); // Or 'draw-graph' if you add an accordion for it
+    }
+  }, [searchParams]);
 
 
   useEffect(() => {
@@ -212,7 +233,6 @@ export function AlgorithmControls() {
         } catch (resizeError) {
             console.error("Image resizing failed:", resizeError);
             toast({ title: "Image Resizing Failed", description: (resizeError as Error).message + " Using original image.", variant: "destructive" });
-            // Continue with original image if resizing fails
         }
         
         const input: ExtractGraphFromImageInput = { imageDataUri: imageDataUriForAI };
@@ -283,6 +303,7 @@ export function AlgorithmControls() {
         <CardTitle className="text-xl font-headline">Controls</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Core Algorithm Controls - Always Visible */}
         <div className="space-y-2">
           <Label htmlFor="algorithm-select">Algorithm</Label>
           <Select
@@ -335,26 +356,26 @@ export function AlgorithmControls() {
         </div>
         
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={handleRunAlgorithm} disabled={!selectedAlgorithm || (animationSteps.length > 0 && isAnimating)}>
+          <Button onClick={handleRunAlgorithm} disabled={!selectedAlgorithm || (animationSteps.length > 0 && isAnimating)} suppressHydrationWarning>
             <Play className="mr-2 h-4 w-4" /> Run
           </Button>
-           <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0}>
+           <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0} suppressHydrationWarning>
             {isAnimating ? <Pause className="mr-2 h-4 w-4" /> : <StepForward className="mr-2 h-4 w-4" />}
             {isAnimating ? "Pause" : (currentStepIndex < animationSteps.length -1 && currentStepIndex !== -1 ? "Next Step" : "Play Steps")}
           </Button>
         </div>
          <div className="grid grid-cols-2 gap-2">
-          <Button onClick={handleResetAnimation} variant="outline">
+          <Button onClick={handleResetAnimation} variant="outline" suppressHydrationWarning>
             <RotateCcw className="mr-2 h-4 w-4" /> Reset Sim
           </Button>
-          <Button onClick={handleResetGraph} variant="destructive">
+          <Button onClick={handleResetGraph} variant="destructive" suppressHydrationWarning>
             <Zap className="mr-2 h-4 w-4" /> Clear Graph
           </Button>
         </div>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="outline" className="w-full" disabled={!selectedNodeId}>
+            <Button variant="outline" className="w-full" disabled={!selectedNodeId} suppressHydrationWarning>
               <Trash2 className="mr-2 h-4 w-4" /> Delete Selected Node
             </Button>
           </AlertDialogTrigger>
@@ -377,70 +398,92 @@ export function AlgorithmControls() {
         <ContextualHelpDialog />
 
         <Separator className="my-4" />
-        
-        <div className="space-y-3">
-          <h3 className="text-md font-semibold font-headline">Image to Graph (Experimental)</h3>
-           <div className="space-y-1">
-            <Label htmlFor="image-upload">Upload Graph Image</Label>
-            <Input 
-              id="image-upload" 
-              type="file" 
-              accept="image/png, image/jpeg, image/webp"
-              onChange={handleImageFileChange}
-              className="text-sm"
-            />
-            {selectedImageFile && <p className="text-xs text-muted-foreground">Selected: {selectedImageFile.name}</p>}
-          </div>
-          <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph}>
-            {isExtractingGraph ? <Loader size={16} className="mr-2"/> : <BrainCircuit className="mr-2 h-4 w-4" />}
-            Process Image to Graph
-          </Button>
-        </div>
 
-        <Separator className="my-4" />
+        {/* Graph Generation Methods in Accordion */}
+        <Accordion 
+          type="single" 
+          collapsible 
+          className="w-full" 
+          value={activeAccordionItem}
+          onValueChange={setActiveAccordionItem}
+        >
+          <AccordionItem value="image-graph">
+            <AccordionTrigger>
+              <h3 className="text-md font-semibold font-headline flex items-center">
+                <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
+              </h3>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="image-upload">Upload Graph Image</Label>
+                <Input 
+                  id="image-upload" 
+                  type="file" 
+                  accept="image/png, image/jpeg, image/webp"
+                  onChange={handleImageFileChange}
+                  className="text-sm"
+                  suppressHydrationWarning
+                />
+                {selectedImageFile && <p className="text-xs text-muted-foreground">Selected: {selectedImageFile.name}</p>}
+              </div>
+              <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph} suppressHydrationWarning>
+                {isExtractingGraph ? <Loader size={16} className="mr-2"/> : <BrainCircuit className="mr-2 h-4 w-4" />}
+                Process Image to Graph
+              </Button>
+            </AccordionContent>
+          </AccordionItem>
 
-        <div className="space-y-3">
-          <h3 className="text-md font-semibold font-headline">Random Graph Generator</h3>
-          <div className="space-y-1">
-            <Label htmlFor="num-random-nodes">Number of Nodes (2-50)</Label>
-            <Input 
-              id="num-random-nodes" 
-              type="number" 
-              value={numRandomNodes} 
-              onChange={(e) => setNumRandomNodes(e.target.value)}
-              min="2"
-              max="50"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1">
-              <Label htmlFor="min-random-weight">Min Weight</Label>
-              <Input 
-                id="min-random-weight" 
-                type="number" 
-                value={minRandomWeight} 
-                onChange={(e) => setMinRandomWeight(e.target.value)}
-                min="1"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="max-random-weight">Max Weight</Label>
-              <Input 
-                id="max-random-weight" 
-                type="number" 
-                value={maxRandomWeight} 
-                onChange={(e) => setMaxRandomWeight(e.target.value)}
-                min="1"
-              />
-            </div>
-          </div>
-          <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary">
-            <Shuffle className="mr-2 h-4 w-4" /> Generate Random Graph
-          </Button>
-        </div>
+          <AccordionItem value="random-graph">
+            <AccordionTrigger>
+               <h3 className="text-md font-semibold font-headline flex items-center">
+                <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
+              </h3>
+            </AccordionTrigger>
+            <AccordionContent className="pt-2 space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="num-random-nodes">Number of Nodes (2-50)</Label>
+                <Input 
+                  id="num-random-nodes" 
+                  type="number" 
+                  value={numRandomNodes} 
+                  onChange={(e) => setNumRandomNodes(e.target.value)}
+                  min="2"
+                  max="50"
+                  suppressHydrationWarning
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="min-random-weight">Min Weight</Label>
+                  <Input 
+                    id="min-random-weight" 
+                    type="number" 
+                    value={minRandomWeight} 
+                    onChange={(e) => setMinRandomWeight(e.target.value)}
+                    min="1"
+                    suppressHydrationWarning
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="max-random-weight">Max Weight</Label>
+                  <Input 
+                    id="max-random-weight" 
+                    type="number" 
+                    value={maxRandomWeight} 
+                    onChange={(e) => setMaxRandomWeight(e.target.value)}
+                    min="1"
+                    suppressHydrationWarning
+                  />
+                </div>
+              </div>
+              <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary" suppressHydrationWarning>
+                <Shuffle className="mr-2 h-4 w-4" /> Generate Random Graph
+              </Button>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
 
       </CardContent>
     </Card>
   );
 }
-
