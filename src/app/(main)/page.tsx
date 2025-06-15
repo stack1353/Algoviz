@@ -1,5 +1,6 @@
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { DraftingCompass, ImageUp, Shuffle, ArrowRight } from "lucide-react";
@@ -33,9 +34,20 @@ const features = [
 
 export default function LandingPage() {
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)]">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tight">
+    <div className="relative container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] overflow-hidden">
+      <Image
+        src="https://placehold.co/1920x1080.png"
+        alt="Abstract network background"
+        layout="fill"
+        objectFit="cover"
+        className="z-[-2] opacity-30" 
+        data-ai-hint="abstract network"
+        priority
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/90 to-background z-[-1]" />
+
+      <div className="relative z-10 text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tight text-foreground">
           Welcome to AlgoViz
         </h1>
         <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto">
@@ -43,9 +55,9 @@ export default function LandingPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full max-w-5xl">
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 w-full max-w-5xl">
         {features.map((feature) => (
-          <Card key={feature.title} className="flex flex-col shadow-xl hover:shadow-2xl transition-shadow duration-300">
+          <Card key={feature.title} className="flex flex-col shadow-xl hover:shadow-2xl transition-shadow duration-300 bg-card/80 backdrop-blur-sm">
             <CardHeader className="items-center text-center">
               <div className="p-3 bg-primary/10 rounded-full mb-3">
                 <feature.icon className="w-8 h-8 text-primary" />
@@ -66,7 +78,7 @@ export default function LandingPage() {
         ))}
       </div>
 
-      <div className="mt-16 text-center">
+      <div className="relative z-10 mt-16 text-center">
         <p className="text-muted-foreground">
           Explore algorithm comparisons and real-world applications using the navigation above.
         </p>

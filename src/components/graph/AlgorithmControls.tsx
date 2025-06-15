@@ -29,14 +29,12 @@ import {
 import { extractGraphFromImage, type ExtractGraphFromImageInput, type ExtractGraphFromImageOutput, type ExtractedNode, type ExtractedEdge } from '@/ai/flows/extract-graph-from-image-flow';
 import { Loader } from '@/components/ui/loader';
 
-// Constants from GraphProvider for scaling
 const RANDOM_GRAPH_CANVAS_WIDTH = 760; 
 const RANDOM_GRAPH_CANVAS_HEIGHT = 560; 
 const NODE_RADIUS_PADDING = 40;
 
-// Constants for image resizing
-const MAX_IMAGE_DIMENSION = 1024; // Max width or height for AI processing
-const IMAGE_QUALITY = 0.8; // JPEG quality for resized images
+const MAX_IMAGE_DIMENSION = 1024; 
+const IMAGE_QUALITY = 0.8; 
 
 
 export function AlgorithmControls() {
@@ -52,12 +50,24 @@ export function AlgorithmControls() {
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
 
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode');
+  const mode = searchParams.get('mode'); // 'draw', 'image', 'random', or null
   
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
     else setLocalStartNode('');
   }, [startNode]);
+
+  useEffect(() => {
+    // Clear file input if mode changes away from image mode or on initial load without image mode
+    if (mode !== 'image' && selectedImageFile) {
+        setSelectedImageFile(null);
+        const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+        if (fileInput) {
+            fileInput.value = '';
+        }
+    }
+  }, [mode, selectedImageFile]);
+
 
   const handleRunAlgorithm = () => {
     dispatch({ type: 'RESET_NODE_EDGE_VISUALS' });
@@ -106,6 +116,10 @@ export function AlgorithmControls() {
     dispatch({ type: 'RESET_GRAPH' });
     setLocalStartNode('');
     setSelectedImageFile(null);
+    const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+    if (fileInput) {
+        fileInput.value = '';
+    }
   };
   
   const handleResetAnimation = () => {
@@ -181,12 +195,10 @@ export function AlgorithmControls() {
           }
           ctx.drawImage(img, 0, 0, width, height);
           resizedDataUri = canvas.toDataURL('image/jpeg', IMAGE_QUALITY);
-          console.log(`Image resized to ${width}x${height}`);
         }
         resolve(resizedDataUri);
       };
       img.onerror = (error) => {
-        console.error("Error loading image for resizing:", error);
         reject(new Error("Could not load image for resizing."));
       };
       img.src = imageDataUri;
@@ -213,7 +225,6 @@ export function AlgorithmControls() {
         try {
             imageDataUriForAI = await resizeImage(originalImageDataUri);
         } catch (resizeError) {
-            console.error("Image resizing failed:", resizeError);
             toast({ title: "Image Resizing Failed", description: (resizeError as Error).message + " Using original image.", variant: "destructive" });
         }
         
@@ -255,22 +266,22 @@ export function AlgorithmControls() {
               weight: aiEdge.weight !== undefined && aiEdge.weight > 0 ? aiEdge.weight : 1,
               isDirected: aiEdge.isDirected || false,
             });
-          } else {
-            console.warn(`Skipping edge due to missing node mapping: ${aiEdge.sourceId} -> ${aiEdge.targetId}`);
           }
         });
         
         dispatch({ type: 'SET_EXTRACTED_GRAPH', payload: { nodes: newNodes, edges: newEdges, nextNodeId: nodeIdCounter, nextEdgeId: edgeIdCounter } });
         toast({ title: "Graph Extracted!", description: `Successfully processed the image and generated a graph with ${newNodes.length} nodes and ${newEdges.length} edges.` });
         setSelectedImageFile(null);
+         const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+        if (fileInput) {
+            fileInput.value = '';
+        }
       };
       reader.onerror = (error) => {
-        console.error("Error reading file:", error);
         toast({ title: "File Read Error", description: "Could not read the image file.", variant: "destructive" });
         setIsExtractingGraph(false);
       };
     } catch (e) {
-      console.error("Error extracting graph:", e);
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during AI processing.";
       toast({ title: "AI Extraction Error", description: errorMessage, variant: "destructive" });
     } finally {
@@ -420,9 +431,23 @@ export function AlgorithmControls() {
           <Button onClick={handleResetAnimation} variant="outline" suppressHydrationWarning>
             <RotateCcw className="mr-2 h-4 w-4" /> Reset Sim
           </Button>
-          <Button onClick={handleResetGraph} variant="destructive" suppressHydrationWarning>
-            <Zap className="mr-2 h-4 w-4" /> Clear Graph
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button variant="destructive" suppressHydrationWarning><Zap className="mr-2 h-4 w-4" /> Clear Graph</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This action will permanently delete the current graph. This cannot be undone.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResetGraph} className={buttonVariants({variant: "destructive"})}>Clear Graph</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         <AlertDialog>
@@ -449,9 +474,9 @@ export function AlgorithmControls() {
         
         <ContextualHelpDialog />
 
+        {/* Conditional Separator and Graph Generation Section */}
         {(mode === 'image' || mode === 'random') && <Separator className="my-4" />}
 
-        {/* Conditional Graph Generation Section */}
         {mode === 'image' && renderImageGraphSection()}
         {mode === 'random' && renderRandomGraphSection()}
         {/* If mode is 'draw' or null, no specific generation tools are shown here. User draws on canvas. */}
