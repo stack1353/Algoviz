@@ -65,9 +65,9 @@ export default function LandingPage() {
           <section className="mt-12 md:mt-16 w-full">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
               {features.map((feature) => (
-                <Link 
-                  href={feature.link} 
-                  key={feature.title} 
+                <Link
+                  href={feature.link}
+                  key={feature.title}
                   className="block rounded-xl overflow-hidden shadow-xl hover:shadow-primary/20 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 outline-none transition-all duration-300 ease-in-out transform hover:scale-[1.02]"
                   aria-label={`Learn more about ${feature.title}`}
                 >
@@ -91,16 +91,16 @@ export default function LandingPage() {
                          <h3 className="text-xl sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors">{feature.title}</h3>
                       </div>
                       <p className="text-muted-foreground text-sm mb-5 sm:mb-6 flex-grow">{feature.description}</p>
-                      <Button 
-                        variant="default" 
-                        size="lg" 
+                      <Button
+                        variant="default"
+                        size="lg"
                         className="w-full mt-auto bg-primary hover:bg-primary/80 text-primary-foreground transition-all duration-300 group-hover:brightness-110 group-hover:shadow-lg group-hover:shadow-primary/30"
                         asChild // Let Link handle navigation
                       >
-                        <a>
+                        <span>
                           {feature.linkText}
                           <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
-                        </a>
+                        </span>
                       </Button>
                     </div>
                   </Card>
