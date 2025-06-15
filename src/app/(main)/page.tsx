@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Palette, Shuffle, ImageUp } from 'lucide-react';
-// import Image from 'next/image'; // Keep commented for now
 
 const features = [
   {
@@ -14,27 +13,27 @@ const features = [
     linkText: "Draw a Graph"
   },
   {
-    icon: <Shuffle className="w-8 h-8 text-primary" />,
-    title: "Random Graph Generation",
-    description: "Instantly generate random graphs with a specified number of nodes and edge weight ranges to test algorithms on diverse structures.",
-    link: "/editor?mode=random",
-    linkText: "Generate Random Graph"
-  },
-  {
     icon: <ImageUp className="w-8 h-8 text-primary" />,
     title: "Graph from Image (AI)",
     description: "Upload an image of a graph, and our AI will attempt to extract its structure, allowing you to visualize algorithms on it.",
     link: "/editor?mode=image",
     linkText: "Upload Image"
+  },
+  {
+    icon: <Shuffle className="w-8 h-8 text-primary" />,
+    title: "Random Graph Generation",
+    description: "Instantly generate random graphs with a specified number of nodes and edge weight ranges to test algorithms on diverse structures.",
+    link: "/editor?mode=random",
+    linkText: "Generate Random Graph"
   }
 ];
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center p-4 md:p-8 relative overflow-hidden">
-      {/* Background Image - Intentionally commented out to isolate 500 error
+      {/* Background Image - Intentionally commented out until confirmed working
       <Image
-        src="/my-custom-background.png" // Ensure this image is in public folder
+        src="/my-custom-background.png" 
         alt="Abstract network background"
         layout="fill"
         objectFit="cover"
@@ -52,20 +51,13 @@ export default function LandingPage() {
           <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
             Interactively learn, visualize, and understand complex graph algorithms like Dijkstra's, Prim's, and Kruskal's. Create graphs, see step-by-step execution, and explore real-world uses.
           </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Button asChild size="lg" className="shadow-lg">
-              <Link href="/editor?mode=draw">Get Started with Editor</Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="shadow-lg">
-              <Link href="/comparison">Compare Algorithms</Link>
-            </Button>
-          </div>
+          {/* Buttons removed as per request */}
 
           <section className="mt-16 md:mt-24">
             <h2 className="text-3xl font-bold font-headline tracking-tight text-foreground mb-10">Features</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            <div className="flex flex-col items-center space-y-6 md:space-y-8">
               {features.map((feature) => (
-                <Card key={feature.title} className="text-left shadow-xl hover:shadow-2xl transition-shadow duration-300 flex flex-col">
+                <Card key={feature.title} className="w-full max-w-md text-left shadow-xl hover:shadow-2xl transition-shadow duration-300 flex flex-col">
                   <CardHeader className="flex-row items-start gap-4 space-y-0 pb-4">
                     <div className="p-2 bg-primary/10 rounded-md flex-shrink-0">
                       {feature.icon}
