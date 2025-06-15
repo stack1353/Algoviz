@@ -18,7 +18,7 @@ const features = [
     icon: ImageUp,
     title: "Graph from Image",
     description: "Upload an image of a graph (e.g., from a textbook or whiteboard) and let AI extract its structure for visualization.",
-    link: "/editor?mode=image", 
+    link: "/editor?mode=image",
     buttonText: "Analyze Image",
     aiHint: "image upload"
   },
@@ -26,7 +26,7 @@ const features = [
     icon: Shuffle,
     title: "Generate Random Graph",
     description: "Quickly generate a random graph with a specified number of nodes and edge weight ranges to explore algorithms immediately.",
-    link: "/editor?mode=random", 
+    link: "/editor?mode=random",
     buttonText: "Generate Graph",
     aiHint: "random dice"
   },
@@ -35,17 +35,20 @@ const features = [
 export default function LandingPage() {
   return (
     <div className="relative container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] overflow-hidden">
+      {/* Background Image: Positioned absolutely, renders behind overlay due to DOM order */}
       <Image
         src="https://placehold.co/1920x1080.png"
         alt="Abstract network background"
         layout="fill"
         objectFit="cover"
-        className="z-[-2] opacity-30" 
+        className="absolute inset-0 opacity-30" // No explicit z-index needed here if overlay comes after
         data-ai-hint="abstract network"
         priority
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/90 to-background z-[-1]" />
+      {/* Gradient Overlay: Positioned absolutely, renders on top of image and behind content */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/90 to-background" />
 
+      {/* Content: z-10 ensures it's on top of the image and overlay */}
       <div className="relative z-10 text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tight text-foreground">
           Welcome to AlgoViz
