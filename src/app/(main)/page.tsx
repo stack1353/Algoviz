@@ -37,8 +37,8 @@ export default function LandingPage() {
     <div className="relative flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] overflow-hidden">
       {/* Background Image */}
       <Image
-        src="/my-custom-background.png" // Ensure this image exists in your public folder
-        alt="AlgoViz landing page background"
+        src="/my-custom-background.png" // This is where your image is referenced
+        alt="Custom background image for AlgoViz landing page"
         fill
         style={{ objectFit: 'cover' }}
         className="absolute inset-0 opacity-75 z-0" 
