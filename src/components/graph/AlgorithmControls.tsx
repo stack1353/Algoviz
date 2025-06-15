@@ -26,12 +26,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
 import { extractGraphFromImage, type ExtractGraphFromImageInput, type ExtractGraphFromImageOutput, type ExtractedNode, type ExtractedEdge } from '@/ai/flows/extract-graph-from-image-flow';
 import { Loader } from '@/components/ui/loader';
 
@@ -60,27 +54,6 @@ export function AlgorithmControls() {
   const searchParams = useSearchParams();
   const mode = searchParams.get('mode');
   
-  const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    // This effect manages the open accordion item IF the accordion is visible (i.e., in 'draw' or no mode)
-    if (!mode || mode === 'draw') {
-      const initialModeForAccordion = searchParams.get('mode'); // Can be 'image', 'random', or null/draw
-      if (initialModeForAccordion === 'image') {
-        setActiveAccordionItem('image-graph');
-      } else if (initialModeForAccordion === 'random') {
-        setActiveAccordionItem('random-graph');
-      } else {
-        setActiveAccordionItem(undefined); // Default to closed if 'draw' or no specific sub-mode
-      }
-    } else {
-      // If in a focused mode ('image' or 'random'), the accordion isn't used for these specific items,
-      // so ensure no accordion item state is carried over.
-      setActiveAccordionItem(undefined);
-    }
-  }, [searchParams, mode]);
-
-
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
     else setLocalStartNode('');
@@ -307,6 +280,9 @@ export function AlgorithmControls() {
 
   const renderImageGraphSection = () => (
     <div className="pt-2 space-y-3">
+       <h3 className="text-md font-semibold font-headline flex items-center">
+          <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
+       </h3>
       <div className="space-y-1">
         <Label htmlFor="image-upload">Upload Graph Image</Label>
         <Input 
@@ -328,6 +304,9 @@ export function AlgorithmControls() {
 
   const renderRandomGraphSection = () => (
     <div className="pt-2 space-y-3">
+      <h3 className="text-md font-semibold font-headline flex items-center">
+        <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
+      </h3>
       <div className="space-y-1">
         <Label htmlFor="num-random-nodes">Number of Nodes (2-50)</Label>
         <Input 
@@ -470,56 +449,14 @@ export function AlgorithmControls() {
         
         <ContextualHelpDialog />
 
-        <Separator className="my-4" />
+        {(mode === 'image' || mode === 'random') && <Separator className="my-4" />}
 
         {/* Conditional Graph Generation Section */}
-        {mode === 'image' ? (
-          <div>
-            <h3 className="text-md font-semibold font-headline flex items-center mb-3">
-              <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
-            </h3>
-            {renderImageGraphSection()}
-          </div>
-        ) : mode === 'random' ? (
-          <div>
-            <h3 className="text-md font-semibold font-headline flex items-center mb-3">
-              <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
-            </h3>
-            {renderRandomGraphSection()}
-          </div>
-        ) : ( // 'draw' mode or no mode (default)
-          <Accordion 
-            type="single" 
-            collapsible 
-            className="w-full" 
-            value={activeAccordionItem}
-            onValueChange={setActiveAccordionItem}
-          >
-            <AccordionItem value="image-graph">
-              <AccordionTrigger>
-                <h3 className="text-md font-semibold font-headline flex items-center">
-                  <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
-                </h3>
-              </AccordionTrigger>
-              <AccordionContent className="pt-2 space-y-3">
-                {renderImageGraphSection()}
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="random-graph">
-              <AccordionTrigger>
-                 <h3 className="text-md font-semibold font-headline flex items-center">
-                  <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
-                </h3>
-              </AccordionTrigger>
-              <AccordionContent className="pt-2 space-y-3">
-                {renderRandomGraphSection()}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        )}
+        {mode === 'image' && renderImageGraphSection()}
+        {mode === 'random' && renderRandomGraphSection()}
+        {/* If mode is 'draw' or null, no specific generation tools are shown here. User draws on canvas. */}
+        
       </CardContent>
     </Card>
   );
 }
-
