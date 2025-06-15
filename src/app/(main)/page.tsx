@@ -41,15 +41,15 @@ export default function LandingPage() {
         alt="Abstract colorful network background"
         fill
         style={{ objectFit: 'cover' }}
-        className="absolute inset-0 opacity-60 z-0" // Increased opacity, explicit z-index
+        className="absolute inset-0 opacity-75 z-0" 
         data-ai-hint="vibrant data"
         priority
       />
       {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/70 to-background z-10" /> {/* Adjusted opacity, explicit z-index */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/30 via-background/60 to-background/90 z-10" />
 
       {/* Content Wrapper */}
-      <div className="relative z-20 container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center w-full"> {/* Explicit z-index */}
+      <div className="relative z-20 container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center w-full">
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tight text-foreground">
             Welcome to AlgoViz
