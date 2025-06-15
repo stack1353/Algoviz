@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -44,11 +43,6 @@ export function Navbar() {
           ))}
         </nav>
         {/* Future placeholder for theme toggle or user auth */}
-        {/* <div className="flex flex-1 items-center justify-end space-x-4">
-          <Button variant="ghost" size="icon">
-            <Sun className="h-5 w-5" /> 
-          </Button>
-        </div> */}
       </div>
     </header>
   );
