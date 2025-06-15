@@ -37,12 +37,12 @@ export default function LandingPage() {
     <div className="relative flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] overflow-hidden">
       {/* Background Image */}
       <Image
-        src="https://placehold.co/1920x1080.png"
-        alt="Abstract colorful network background"
+        src="/my-custom-background.png" // Make sure your image is at public/my-custom-background.png
+        alt="Custom background image for AlgoViz" // Updated alt text
         fill
         style={{ objectFit: 'cover' }}
         className="absolute inset-0 opacity-75 z-0" 
-        data-ai-hint="vibrant data"
+        data-ai-hint="vibrant data" // This hint is less relevant now but can be kept or removed
         priority
       />
       {/* Gradient Overlay */}
