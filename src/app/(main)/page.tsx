@@ -2,17 +2,10 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Waypoints, Palette, Shuffle, ImageUp, Lightbulb, Brain } from 'lucide-react';
+import { Palette, Shuffle, ImageUp } from 'lucide-react';
 // import Image from 'next/image'; // Keep commented for now
 
 const features = [
-  {
-    icon: <Waypoints className="w-8 h-8 text-primary" />,
-    title: "Visualize Algorithms",
-    description: "Watch Dijkstra's, Prim's, and Kruskal's algorithms in action. Understand step-by-step how they build paths and trees.",
-    link: "/editor?mode=draw",
-    linkText: "Try the Editor"
-  },
   {
     icon: <Palette className="w-8 h-8 text-primary" />,
     title: "Interactive Canvas",
@@ -33,20 +26,6 @@ const features = [
     description: "Upload an image of a graph, and our AI will attempt to extract its structure, allowing you to visualize algorithms on it.",
     link: "/editor?mode=image",
     linkText: "Upload Image"
-  },
-  {
-    icon: <Lightbulb className="w-8 h-8 text-primary" />,
-    title: "Real-World Applications",
-    description: "Explore how these fundamental graph algorithms are used in GPS navigation, network design, circuit planning, and more.",
-    link: "/applications",
-    linkText: "See Applications"
-  },
-  {
-    icon: <Brain className="w-8 h-8 text-primary" />,
-    title: "Contextual AI Help",
-    description: "Stuck on a step? Get AI-powered explanations for the current state of an algorithm's visualization directly in the editor.",
-    link: "/editor?mode=draw",
-    linkText: "Get AI Help"
   }
 ];
 
