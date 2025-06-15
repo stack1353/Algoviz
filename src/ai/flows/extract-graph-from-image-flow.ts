@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview AI flow to extract graph structure from an image.
@@ -49,6 +50,7 @@ export async function extractGraphFromImage(input: ExtractGraphFromImageInput): 
 
 const extractGraphPrompt = ai.definePrompt({
   name: 'extractGraphFromImagePrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: ExtractGraphFromImageInputSchema},
   output: {schema: ExtractGraphFromImageOutputSchema},
   prompt: `You are an expert system designed to analyze images of graphs and extract their structure.

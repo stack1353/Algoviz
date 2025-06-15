@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview AI flow to provide contextual help about algorithm visualizations.
@@ -45,6 +46,7 @@ async (input) => {
 
 const algorithmHelpPrompt = ai.definePrompt({
   name: 'algorithmHelpPrompt',
+  model: 'googleai/gemini-1.5-flash',
   input: {schema: GetAlgorithmHelpInputSchema},
   output: {schema: GetAlgorithmHelpOutputSchema},
   tools: [graphTheoryExamplesTool],
