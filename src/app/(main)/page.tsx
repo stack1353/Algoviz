@@ -38,11 +38,11 @@ export default function LandingPage() {
       {/* Background Image: Positioned absolutely, renders behind overlay due to DOM order */}
       <Image
         src="https://placehold.co/1920x1080.png"
-        alt="Abstract network background"
+        alt="Abstract colorful network background"
         layout="fill"
         objectFit="cover"
         className="absolute inset-0 opacity-30" // No explicit z-index needed here if overlay comes after
-        data-ai-hint="abstract network"
+        data-ai-hint="vibrant data" // Updated AI hint
         priority
       />
       {/* Gradient Overlay: Positioned absolutely, renders on top of image and behind content */}
@@ -62,8 +62,8 @@ export default function LandingPage() {
         {features.map((feature) => (
           <Card key={feature.title} className="flex flex-col shadow-xl hover:shadow-2xl transition-shadow duration-300 bg-card/80 backdrop-blur-sm">
             <CardHeader className="items-center text-center">
-              <div className="p-3 bg-primary/10 rounded-full mb-3">
-                <feature.icon className="w-8 h-8 text-primary" />
+              <div className="p-3 bg-accent/10 rounded-full mb-3">
+                <feature.icon className="w-8 h-8 text-accent" /> {/* Changed to text-accent */}
               </div>
               <CardTitle className="text-xl font-headline">{feature.title}</CardTitle>
             </CardHeader>
