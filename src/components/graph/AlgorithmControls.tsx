@@ -58,18 +58,27 @@ export function AlgorithmControls() {
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
 
   const searchParams = useSearchParams();
+  const mode = searchParams.get('mode');
+  
   const [activeAccordionItem, setActiveAccordionItem] = useState<string | undefined>(undefined);
 
   useEffect(() => {
-    const mode = searchParams.get('mode');
-    if (mode === 'image') {
-      setActiveAccordionItem('image-graph');
-    } else if (mode === 'random') {
-      setActiveAccordionItem('random-graph');
+    // This effect manages the open accordion item IF the accordion is visible (i.e., in 'draw' or no mode)
+    if (!mode || mode === 'draw') {
+      const initialModeForAccordion = searchParams.get('mode'); // Can be 'image', 'random', or null/draw
+      if (initialModeForAccordion === 'image') {
+        setActiveAccordionItem('image-graph');
+      } else if (initialModeForAccordion === 'random') {
+        setActiveAccordionItem('random-graph');
+      } else {
+        setActiveAccordionItem(undefined); // Default to closed if 'draw' or no specific sub-mode
+      }
     } else {
-      setActiveAccordionItem(undefined); // Or 'draw-graph' if you add an accordion for it
+      // If in a focused mode ('image' or 'random'), the accordion isn't used for these specific items,
+      // so ensure no accordion item state is carried over.
+      setActiveAccordionItem(undefined);
     }
-  }, [searchParams]);
+  }, [searchParams, mode]);
 
 
   useEffect(() => {
@@ -296,6 +305,70 @@ export function AlgorithmControls() {
     }
   };
 
+  const renderImageGraphSection = () => (
+    <div className="pt-2 space-y-3">
+      <div className="space-y-1">
+        <Label htmlFor="image-upload">Upload Graph Image</Label>
+        <Input 
+          id="image-upload" 
+          type="file" 
+          accept="image/png, image/jpeg, image/webp"
+          onChange={handleImageFileChange}
+          className="text-sm"
+          suppressHydrationWarning
+        />
+        {selectedImageFile && <p className="text-xs text-muted-foreground">Selected: {selectedImageFile.name}</p>}
+      </div>
+      <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph} suppressHydrationWarning>
+        {isExtractingGraph ? <Loader size={16} className="mr-2"/> : <BrainCircuit className="mr-2 h-4 w-4" />}
+        Process Image to Graph
+      </Button>
+    </div>
+  );
+
+  const renderRandomGraphSection = () => (
+    <div className="pt-2 space-y-3">
+      <div className="space-y-1">
+        <Label htmlFor="num-random-nodes">Number of Nodes (2-50)</Label>
+        <Input 
+          id="num-random-nodes" 
+          type="number" 
+          value={numRandomNodes} 
+          onChange={(e) => setNumRandomNodes(e.target.value)}
+          min="2"
+          max="50"
+          suppressHydrationWarning
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <Label htmlFor="min-random-weight">Min Weight</Label>
+          <Input 
+            id="min-random-weight" 
+            type="number" 
+            value={minRandomWeight} 
+            onChange={(e) => setMinRandomWeight(e.target.value)}
+            min="1"
+            suppressHydrationWarning
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="max-random-weight">Max Weight</Label>
+          <Input 
+            id="max-random-weight" 
+            type="number" 
+            value={maxRandomWeight} 
+            onChange={(e) => setMaxRandomWeight(e.target.value)}
+            min="1"
+            suppressHydrationWarning
+          />
+        </div>
+      </div>
+      <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary" suppressHydrationWarning>
+        <Shuffle className="mr-2 h-4 w-4" /> Generate Random Graph
+      </Button>
+    </div>
+  );
 
   return (
     <Card className="w-full shadow-lg">
@@ -399,91 +472,54 @@ export function AlgorithmControls() {
 
         <Separator className="my-4" />
 
-        {/* Graph Generation Methods in Accordion */}
-        <Accordion 
-          type="single" 
-          collapsible 
-          className="w-full" 
-          value={activeAccordionItem}
-          onValueChange={setActiveAccordionItem}
-        >
-          <AccordionItem value="image-graph">
-            <AccordionTrigger>
-              <h3 className="text-md font-semibold font-headline flex items-center">
-                <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
-              </h3>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2 space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="image-upload">Upload Graph Image</Label>
-                <Input 
-                  id="image-upload" 
-                  type="file" 
-                  accept="image/png, image/jpeg, image/webp"
-                  onChange={handleImageFileChange}
-                  className="text-sm"
-                  suppressHydrationWarning
-                />
-                {selectedImageFile && <p className="text-xs text-muted-foreground">Selected: {selectedImageFile.name}</p>}
-              </div>
-              <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph} suppressHydrationWarning>
-                {isExtractingGraph ? <Loader size={16} className="mr-2"/> : <BrainCircuit className="mr-2 h-4 w-4" />}
-                Process Image to Graph
-              </Button>
-            </AccordionContent>
-          </AccordionItem>
+        {/* Conditional Graph Generation Section */}
+        {mode === 'image' ? (
+          <div>
+            <h3 className="text-md font-semibold font-headline flex items-center mb-3">
+              <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
+            </h3>
+            {renderImageGraphSection()}
+          </div>
+        ) : mode === 'random' ? (
+          <div>
+            <h3 className="text-md font-semibold font-headline flex items-center mb-3">
+              <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
+            </h3>
+            {renderRandomGraphSection()}
+          </div>
+        ) : ( // 'draw' mode or no mode (default)
+          <Accordion 
+            type="single" 
+            collapsible 
+            className="w-full" 
+            value={activeAccordionItem}
+            onValueChange={setActiveAccordionItem}
+          >
+            <AccordionItem value="image-graph">
+              <AccordionTrigger>
+                <h3 className="text-md font-semibold font-headline flex items-center">
+                  <ImageUp className="mr-2 h-5 w-5" /> Graph from Image (Experimental)
+                </h3>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2 space-y-3">
+                {renderImageGraphSection()}
+              </AccordionContent>
+            </AccordionItem>
 
-          <AccordionItem value="random-graph">
-            <AccordionTrigger>
-               <h3 className="text-md font-semibold font-headline flex items-center">
-                <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
-              </h3>
-            </AccordionTrigger>
-            <AccordionContent className="pt-2 space-y-3">
-              <div className="space-y-1">
-                <Label htmlFor="num-random-nodes">Number of Nodes (2-50)</Label>
-                <Input 
-                  id="num-random-nodes" 
-                  type="number" 
-                  value={numRandomNodes} 
-                  onChange={(e) => setNumRandomNodes(e.target.value)}
-                  min="2"
-                  max="50"
-                  suppressHydrationWarning
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <Label htmlFor="min-random-weight">Min Weight</Label>
-                  <Input 
-                    id="min-random-weight" 
-                    type="number" 
-                    value={minRandomWeight} 
-                    onChange={(e) => setMinRandomWeight(e.target.value)}
-                    min="1"
-                    suppressHydrationWarning
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="max-random-weight">Max Weight</Label>
-                  <Input 
-                    id="max-random-weight" 
-                    type="number" 
-                    value={maxRandomWeight} 
-                    onChange={(e) => setMaxRandomWeight(e.target.value)}
-                    min="1"
-                    suppressHydrationWarning
-                  />
-                </div>
-              </div>
-              <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary" suppressHydrationWarning>
-                <Shuffle className="mr-2 h-4 w-4" /> Generate Random Graph
-              </Button>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
+            <AccordionItem value="random-graph">
+              <AccordionTrigger>
+                 <h3 className="text-md font-semibold font-headline flex items-center">
+                  <Shuffle className="mr-2 h-5 w-5" /> Random Graph Generator
+                </h3>
+              </AccordionTrigger>
+              <AccordionContent className="pt-2 space-y-3">
+                {renderRandomGraphSection()}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        )}
       </CardContent>
     </Card>
   );
 }
+
