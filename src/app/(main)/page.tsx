@@ -35,21 +35,21 @@ const features = [
 export default function LandingPage() {
   return (
     <div className="relative flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] overflow-hidden">
-      {/* Background Image: Positioned absolutely, to fill its relative parent */}
+      {/* Background Image */}
       <Image
         src="https://placehold.co/1920x1080.png"
         alt="Abstract colorful network background"
         fill
         style={{ objectFit: 'cover' }}
-        className="absolute inset-0 opacity-30"
+        className="absolute inset-0 opacity-60 z-0" // Increased opacity, explicit z-index
         data-ai-hint="vibrant data"
         priority
       />
-      {/* Gradient Overlay: Positioned absolutely, on top of the image */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/90 to-background" />
+      {/* Gradient Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-background/70 to-background z-10" /> {/* Adjusted opacity, explicit z-index */}
 
-      {/* Content Wrapper: This uses 'container' for padding/centering and is layered on top */}
-      <div className="relative z-10 container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center w-full">
+      {/* Content Wrapper */}
+      <div className="relative z-20 container mx-auto p-4 sm:p-6 lg:p-8 flex flex-col items-center justify-center w-full"> {/* Explicit z-index */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tight text-foreground">
             Welcome to AlgoViz
