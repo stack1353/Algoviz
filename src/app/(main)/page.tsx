@@ -37,12 +37,12 @@ export default function LandingPage() {
     <div className="relative flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] overflow-hidden">
       {/* Background Image */}
       <Image
-        src="/my-custom-background.png" // Make sure your image is at public/my-custom-background.png
-        alt="Custom background image for AlgoViz" // Updated alt text
+        src="/my-custom-background.png" // This line tells Next.js to look for my-custom-background.png in the public folder
+        alt="Custom background image for AlgoViz"
         fill
         style={{ objectFit: 'cover' }}
         className="absolute inset-0 opacity-75 z-0" 
-        data-ai-hint="vibrant data" // This hint is less relevant now but can be kept or removed
+        data-ai-hint="vibrant data" 
         priority
       />
       {/* Gradient Overlay */}
