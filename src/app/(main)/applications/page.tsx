@@ -1,13 +1,21 @@
 
 import Link from 'next/link';
-import { ApplicationCard } from "@/components/ApplicationCard";
-import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown } from 'lucide-react';
 
+// This data remains the same as it defines the applications and their details
 const applications = [
   {
     id: "gps-navigation",
     algorithmName: "Dijkstra's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "https://placehold.co/600x400.png", // Kept for potential future use or if linking directly
     imageAlt: "GPS navigation system visualizing a route",
     title: "GPS Route Planning",
     description: "Visualize Dijkstra's on a city map: intersections are nodes, roads are edges with travel times. Select start/end points. Watch as roads are explored (highlighted blue), finalized short paths (green nodes), and the current node pulses. The final shortest route is drawn prominently in orange, showing total travel time. This demonstrates how GPS finds optimal routes by systematically checking paths.",
@@ -69,15 +77,18 @@ const applications = [
 const algorithmGroups = [
   {
     name: "Dijkstra's Algorithm",
-    apps: applications.filter(app => app.algorithmName === "Dijkstra's Algorithm")
+    apps: applications.filter(app => app.algorithmName === "Dijkstra's Algorithm"),
+    description: "Finds the shortest path in networks like GPS or data routing."
   },
   {
     name: "Prim's Algorithm",
-    apps: applications.filter(app => app.algorithmName === "Prim's Algorithm")
+    apps: applications.filter(app => app.algorithmName === "Prim's Algorithm"),
+    description: "Builds minimum cost networks, like power grids or data clusters."
   },
   {
     name: "Kruskal's Algorithm",
-    apps: applications.filter(app => app.algorithmName === "Kruskal's Algorithm")
+    apps: applications.filter(app => app.algorithmName === "Kruskal's Algorithm"),
+    description: "Connects components efficiently, like circuits or island bridges."
   }
 ];
 
@@ -87,35 +98,47 @@ export default function ApplicationsPage() {
       <div className="text-center mb-12">
         <CardTitle className="text-3xl md:text-4xl font-headline">Real-World Applications & Visualizations</CardTitle>
         <CardDescription className="text-lg text-muted-foreground mt-2">
-          Explore how graph algorithms solve practical problems. Click an application to visualize it in the editor.
+          Explore how graph algorithms solve practical problems. Select an algorithm, then choose an application to visualize it in the editor.
         </CardDescription>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 lg:gap-x-8 gap-y-8">
         {algorithmGroups.map((group) => (
-          <section key={group.name} className="flex flex-col space-y-6">
-            <h2 className="text-2xl font-bold text-primary text-center md:text-left font-headline border-b-2 border-primary/30 pb-2">
-              {group.name}
-            </h2>
-            {group.apps.map((app) => (
-              <Link 
-                key={app.id} 
-                href={`/editor?application=${app.id}&algorithm=${encodeURIComponent(app.algorithmName)}`}
-                className="block hover:scale-[1.02] transition-transform duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg"
-                aria-label={`Visualize ${app.title}`}
-              >
-                <ApplicationCard
-                  algorithmName={app.algorithmName}
-                  imageUrl={app.imageUrl}
-                  imageAlt={app.imageAlt}
-                  title={app.title}
-                  description={app.description}
-                  tags={app.tags}
-                  aiHint={app.aiHint}
-                />
-              </Link>
-            ))}
-          </section>
+          <Card key={group.name} className="flex flex-col shadow-xl border-2 border-transparent hover:border-primary/20 transition-all duration-300 ease-in-out transform hover:scale-[1.02] bg-card">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-2xl font-bold text-primary text-center font-headline">
+                {group.name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center flex-grow p-6 pt-0 text-center">
+              <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
+                {group.description}
+              </p>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="default" size="lg" className="w-full max-w-xs shadow-md hover:shadow-lg transition-shadow">
+                    Select Example <ChevronDown className="ml-2 h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" className="w-72 bg-popover shadow-xl rounded-md border-border">
+                  {group.apps.map((app) => (
+                    <DropdownMenuItem key={app.id} asChild className="focus:bg-accent focus:text-accent-foreground">
+                      <Link
+                        href={`/editor?application=${app.id}&algorithm=${encodeURIComponent(app.algorithmName)}`}
+                        className="block w-full text-left p-2 text-sm"
+                        aria-label={`Visualize ${app.title}`}
+                      >
+                        {app.title}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  {group.apps.length === 0 && (
+                    <DropdownMenuItem disabled className="p-2 text-sm">No applications available</DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </CardContent>
+          </Card>
         ))}
       </div>
     </div>
