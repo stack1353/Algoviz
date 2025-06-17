@@ -2,10 +2,11 @@
 "use client";
 
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import type { Node, Edge, Graph, AlgorithmType, AnimationStep } from '@/types/graph';
+import type { Node, Edge, Graph, AlgorithmType, AnimationStep, ApplicationGraphData } from '@/types/graph';
 import { dijkstra } from '@/algorithms/dijkstra';
 import { prim } from '@/algorithms/prim';
 import { kruskal } from '@/algorithms/kruskal';
+import { applicationGraphs } from '@/data/application-graphs';
 
 interface GraphState extends Graph {
   selectedAlgorithm: AlgorithmType;
@@ -19,12 +20,13 @@ interface GraphState extends Graph {
   nextNodeId: number;
   nextEdgeId: number;
   selectedNodeId: string | null; // For deletion
+  currentApplicationId: string | null; // To know which app graph is loaded
 }
 
 const initialState: GraphState = {
   nodes: [],
   edges: [],
-  selectedAlgorithm: null,
+  selectedAlgorithm: "none",
   animationSteps: [],
   currentStepIndex: -1,
   animationSpeed: 500,
@@ -35,6 +37,7 @@ const initialState: GraphState = {
   nextNodeId: 1,
   nextEdgeId: 1,
   selectedNodeId: null,
+  currentApplicationId: null,
 };
 
 // Constants for random graph generation
@@ -65,7 +68,8 @@ type Action =
   | { type: 'CLEAR_NODE_LABELS' }
   | { type: 'SET_VIS_STATE_AI', payload: string | null }
   | { type: 'CREATE_RANDOM_GRAPH'; payload: { numNodes: number; minWeight: number; maxWeight: number } }
-  | { type: 'SET_EXTRACTED_GRAPH'; payload: { nodes: Node[]; edges: Edge[]; nextNodeId: number; nextEdgeId: number } };
+  | { type: 'SET_EXTRACTED_GRAPH'; payload: { nodes: Node[]; edges: Edge[]; nextNodeId: number; nextEdgeId: number } }
+  | { type: 'LOAD_APPLICATION_GRAPH'; payload: { applicationId: string } };
 
 
 const graphReducer = (state: GraphState, action: Action): GraphState => {
@@ -79,7 +83,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nextNodeId: state.nextNodeId + 1, 
         messages: [],
         selectedNodeId: newNodeId, 
-        animationSteps: [], currentStepIndex: -1, isAnimating: false, // Reset animation on graph change
+        animationSteps: [], currentStepIndex: -1, isAnimating: false, 
+        currentApplicationId: null, // User is modifying, so it's no longer a pure app graph
       };
     case 'ADD_EDGE':
       if (state.edges.some(e => 
@@ -102,7 +107,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nextEdgeId: state.nextEdgeId + 1, 
         messages: [],
         selectedNodeId: null,
-        animationSteps: [], currentStepIndex: -1, isAnimating: false, // Reset animation on graph change
+        animationSteps: [], currentStepIndex: -1, isAnimating: false, 
+        currentApplicationId: null, // User is modifying
       };
     case 'DELETE_NODE': {
       const { nodeId } = action.payload;
@@ -125,6 +131,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         isAnimating: false,
         messages: [`Node ${nodeId} and its edges deleted.`],
         currentVisualizationStateForAI: null,
+        currentApplicationId: null, // User is modifying
       };
     }
     case 'SET_SELECTED_NODE':
@@ -134,7 +141,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
     case 'RUN_ALGORITHM':
-      if (!state.selectedAlgorithm) return state;
+      if (!state.selectedAlgorithm || state.selectedAlgorithm === "none") return state;
       let steps: AnimationStep[] = [];
       const currentGraph = { nodes: state.nodes, edges: state.edges }; 
       
@@ -171,7 +178,12 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             newNodes = newNodes.map(n => ({ ...n, color: undefined }));
             newEdges = newEdges.map(e => ({ ...e, color: undefined }));
         } else if (currentStep.type === "clear-labels") {
-            newNodes = newNodes.map(n => ({ ...n, label: n.id.replace('node-', 'N') }));
+            const baseLabel = (nodeId: string, appNodes?: Node[]) => {
+                const appNode = appNodes?.find(n => n.id === nodeId);
+                return appNode?.label || nodeId.replace('node-', 'N');
+            };
+            const appGraphData = state.currentApplicationId ? applicationGraphs[state.currentApplicationId] : undefined;
+            newNodes = newNodes.map(n => ({ ...n, label: baseLabel(n.id, appGraphData?.nodes) }));
         }
         
         return { 
@@ -188,7 +200,12 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'TOGGLE_ANIMATION_PLAY_PAUSE':
       if (state.animationSteps.length === 0) return state;
       if (!state.isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
-        const resetNodes = state.nodes.map(n => ({ ...n, color: undefined, label: n.id.replace('node-', 'N') }));
+        const baseLabelForToggle = (nodeId: string, appNodes?: Node[]) => {
+            const appNode = appNodes?.find(n => n.id === nodeId);
+            return appNode?.label || nodeId.replace('node-', 'N');
+        };
+        const appGraphData = state.currentApplicationId ? applicationGraphs[state.currentApplicationId] : undefined;
+        const resetNodes = state.nodes.map(n => ({ ...n, color: undefined, label: baseLabelForToggle(n.id, appGraphData?.nodes) }));
         const resetEdges = state.edges.map(e => ({ ...e, color: undefined}));
         return {
           ...state,
@@ -204,18 +221,20 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_ANIMATION_SPEED':
       return { ...state, animationSpeed: action.payload };
     case 'RESET_GRAPH':
-      return { ...initialState, animationSpeed: state.animationSpeed, selectedAlgorithm: state.selectedAlgorithm };
+      return { ...initialState, animationSpeed: state.animationSpeed, selectedAlgorithm: "none" };
     case 'RESET_ANIMATION':
-        const baseLabelForReset = (nodeId: string) => {
-            const parts = nodeId.split('-');
-            return `N${parts[parts.length -1]}`;
+        const baseLabelForReset = (nodeId: string, appNodes?: Node[]) => {
+            const appNode = appNodes?.find(n => n.id === nodeId);
+            return appNode?.label || nodeId.replace('node-','N');
         };
+        const appGraphDataForReset = state.currentApplicationId ? applicationGraphs[state.currentApplicationId] : undefined;
+
       return { 
         ...state, 
         currentStepIndex: -1, 
         isAnimating: false, 
         messages: [], 
-        nodes: state.nodes.map(n => ({...n, color: undefined, label: baseLabelForReset(n.id) })),
+        nodes: state.nodes.map(n => ({...n, color: undefined, label: baseLabelForReset(n.id, appGraphDataForReset?.nodes) })),
         edges: state.edges.map(e => ({...e, color: undefined})),
         currentVisualizationStateForAI: null,
         selectedNodeId: null,
@@ -235,13 +254,14 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             edges: state.edges.map(e => ({ ...e, color: undefined })),
         };
     case 'CLEAR_NODE_LABELS':
-        const baseLabelForClear = (nodeId: string) => {
-            const parts = nodeId.split('-');
-            return `N${parts[parts.length -1]}`;
+        const baseLabelForClear = (nodeId: string, appNodes?: Node[]) => {
+            const appNode = appNodes?.find(n => n.id === nodeId);
+            return appNode?.label || nodeId.replace('node-', 'N');
         };
+        const appGraphDataForClear = state.currentApplicationId ? applicationGraphs[state.currentApplicationId] : undefined;
         return {
             ...state,
-            nodes: state.nodes.map(n => ({ ...n, label: baseLabelForClear(n.id) })),
+            nodes: state.nodes.map(n => ({ ...n, label: baseLabelForClear(n.id, appGraphDataForClear?.nodes) })),
         };
     case 'SET_VIS_STATE_AI':
         return { ...state, currentVisualizationStateForAI: action.payload };
@@ -250,7 +270,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const newGeneratedNodes: Node[] = [];
         let newGeneratedEdges: Edge[] = [];
 
-        let localNodeIdCounter = 1; // Start fresh from 1 for random graphs
+        let localNodeIdCounter = 1; 
         let localEdgeIdCounter = 1;
         
         for (let i = 0; i < numNodes; i++) {
@@ -317,7 +337,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         return {
             ...initialState, 
             animationSpeed: state.animationSpeed, 
-            selectedAlgorithm: state.selectedAlgorithm,
+            selectedAlgorithm: "none",
             startNode: null, 
             nodes: newGeneratedNodes,
             edges: newGeneratedEdges,
@@ -326,14 +346,15 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             messages: [`Generated random graph with ${numNodes} nodes.`],
             currentVisualizationStateForAI: null,
             selectedNodeId: null,
+            currentApplicationId: null,
         };
     }
     case 'SET_EXTRACTED_GRAPH': {
         const { nodes: extractedNodes, edges: extractedEdges, nextNodeId: newNextNodeId, nextEdgeId: newNextEdgeId } = action.payload;
         return {
-            ...initialState, // Reset most state like a new graph
+            ...initialState, 
             animationSpeed: state.animationSpeed,
-            selectedAlgorithm: state.selectedAlgorithm, // Keep selected algorithm
+            selectedAlgorithm: "none", 
             nodes: extractedNodes,
             edges: extractedEdges,
             nextNodeId: newNextNodeId,
@@ -344,7 +365,31 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             isAnimating: false,
             currentStepIndex: -1,
             animationSteps: [],
+            currentApplicationId: null,
         };
+    }
+    case 'LOAD_APPLICATION_GRAPH': {
+      const { applicationId } = action.payload;
+      const appData = applicationGraphs[applicationId];
+      if (!appData) return state; // Or handle error
+
+      // Deep copy nodes and edges to prevent direct mutation of predefined data
+      const newNodes = appData.nodes.map(n => ({...n}));
+      const newEdges = appData.edges.map(e => ({...e}));
+
+      return {
+        ...initialState, // Reset most state
+        animationSpeed: state.animationSpeed, // Keep user's speed preference
+        nodes: newNodes,
+        edges: newEdges,
+        selectedAlgorithm: appData.algorithm,
+        startNode: appData.startNode || null,
+        nextNodeId: appData.nextNodeId || newNodes.length + 1,
+        nextEdgeId: appData.nextEdgeId || newEdges.length + 1,
+        messages: [`Loaded application: ${appData.description}`],
+        currentVisualizationStateForAI: `Viewing ${appData.description}`,
+        currentApplicationId: applicationId,
+      };
     }
     default:
       return state;

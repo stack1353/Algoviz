@@ -21,7 +21,7 @@ export interface Graph {
   edges: Edge[];
 }
 
-export type AlgorithmType = "dijkstra" | "prim" | "kruskal" | null;
+export type AlgorithmType = "dijkstra" | "prim" | "kruskal" | "none" | null;
 
 export interface AnimationStep {
   type: "highlight-node" | "highlight-edge" | "update-node-label" | "message" | "reset-colors" | "clear-labels";
@@ -33,4 +33,15 @@ export interface AnimationStep {
   nodesToHighlight?: string[];
   edgesToHighlight?: string[];
   descriptionForAI?: string; // State description for AI help
+}
+
+// For predefined application graphs
+export interface ApplicationGraphData {
+  nodes: Node[];
+  edges: Edge[];
+  startNode?: string; // Optional, for algorithms like Dijkstra
+  description: string; // A brief description of the scenario
+  algorithm: AlgorithmType;
+  nextNodeId?: number; // To continue numbering if user edits
+  nextEdgeId?: number; // To continue numbering if user edits
 }

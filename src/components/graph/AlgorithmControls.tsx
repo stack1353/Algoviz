@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGraph } from '@/providers/GraphProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { extractGraphFromImage, type ExtractGraphFromImageInput, type ExtractGraphFromImageOutput, type ExtractedNode, type ExtractedEdge } from '@/ai/flows/extract-graph-from-image-flow';
 import { Loader } from '@/components/ui/loader';
+import { applicationGraphs } from '@/data/application-graphs';
+
 
 const RANDOM_GRAPH_CANVAS_WIDTH = 760; 
 const RANDOM_GRAPH_CANVAS_HEIGHT = 560; 
@@ -39,18 +41,33 @@ const IMAGE_QUALITY = 0.8;
 
 export function AlgorithmControls() {
   const { state, dispatch } = useGraph();
-  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId, nextNodeId: currentNextNodeId, nextEdgeId: currentNextEdgeId } = state;
+  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId, nextNodeId: currentNextNodeId, nextEdgeId: currentNextEdgeId, currentApplicationId } = state;
+  
   const [localStartNode, setLocalStartNode] = useState('');
-
   const [numRandomNodes, setNumRandomNodes] = useState<string>("8");
   const [minRandomWeight, setMinRandomWeight] = useState<string>("1");
   const [maxRandomWeight, setMaxRandomWeight] = useState<string>("10");
-
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
 
   const searchParams = useSearchParams();
-  const mode = searchParams.get('mode'); // 'draw', 'image', 'random', or null
+  const modeQueryParam = searchParams.get('mode');
+  const applicationQueryParam = searchParams.get('application');
+  const algorithmQueryParam = searchParams.get('algorithm') as AlgorithmType;
+
+  useEffect(() => {
+    if (!initialLoadDone) {
+      if (applicationQueryParam && applicationGraphs[applicationQueryParam]) {
+        dispatch({ type: 'LOAD_APPLICATION_GRAPH', payload: { applicationId: applicationQueryParam } });
+        // The algorithm and startNode will be set by LOAD_APPLICATION_GRAPH from predefined data
+      } else if (algorithmQueryParam) {
+        dispatch({ type: 'SET_ALGORITHM', payload: algorithmQueryParam });
+      }
+      setInitialLoadDone(true);
+    }
+  }, [applicationQueryParam, algorithmQueryParam, dispatch, initialLoadDone]);
   
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
@@ -58,15 +75,14 @@ export function AlgorithmControls() {
   }, [startNode]);
 
   useEffect(() => {
-    // Clear file input if mode changes away from image mode or on initial load without image mode
-    if (mode !== 'image' && selectedImageFile) {
+    if (modeQueryParam !== 'image' && selectedImageFile) {
         setSelectedImageFile(null);
         const fileInput = document.getElementById('image-upload') as HTMLInputElement;
         if (fileInput) {
             fileInput.value = '';
         }
     }
-  }, [mode, selectedImageFile]);
+  }, [modeQueryParam, selectedImageFile]);
 
 
   const handleRunAlgorithm = () => {
@@ -78,7 +94,11 @@ export function AlgorithmControls() {
       return;
     }
     if (selectedAlgorithm === 'dijkstra') {
-      dispatch({ type: 'SET_START_NODE', payload: localStartNode });
+      // Ensure localStartNode is dispatched if it differs from context,
+      // useful if user changed it after an application graph loaded
+      if(state.startNode !== localStartNode) {
+         dispatch({ type: 'SET_START_NODE', payload: localStartNode });
+      }
     }
     dispatch({ type: 'RUN_ALGORITHM' });
   };
@@ -120,6 +140,8 @@ export function AlgorithmControls() {
     if (fileInput) {
         fileInput.value = '';
     }
+    // If we were on an application or specific mode, navigating to clean editor state might be good
+    // router.push('/editor', { shallow: true }); // Or use window.history.pushState
   };
   
   const handleResetAnimation = () => {
@@ -240,8 +262,8 @@ export function AlgorithmControls() {
         const newNodes: GraphNode[] = [];
         const newEdges: GraphEdge[] = [];
         const aiIdToInternalIdMap = new Map<string, string>();
-        let nodeIdCounter = currentNextNodeId;
-        let edgeIdCounter = currentNextEdgeId;
+        let nodeIdCounter = currentNextNodeId; // Use context's counter
+        let edgeIdCounter = currentNextEdgeId; // Use context's counter
 
         aiOutput.nodes.forEach((aiNode: ExtractedNode) => {
           const internalNodeId = `node-${nodeIdCounter++}`;
@@ -359,6 +381,17 @@ export function AlgorithmControls() {
       </Button>
     </div>
   );
+  
+  const handleAlgorithmChange = (value: AlgorithmType) => {
+    dispatch({ type: 'SET_ALGORITHM', payload: value });
+    // If changing algorithm manually and a specific application graph was loaded,
+    // it might be good to clear the startNode if the new algo doesn't need it,
+    // or prompt if the current startNode is invalid for the new algo.
+    // For simplicity, we let SET_ALGORITHM reset animation state.
+    if (value !== 'dijkstra' && state.startNode) {
+      // dispatch({ type: 'SET_START_NODE', payload: null }); // Optionally clear start node
+    }
+  };
 
   return (
     <Card className="w-full shadow-lg">
@@ -366,12 +399,12 @@ export function AlgorithmControls() {
         <CardTitle className="text-xl font-headline">Controls</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Core Algorithm Controls - Always Visible */}
         <div className="space-y-2">
           <Label htmlFor="algorithm-select">Algorithm</Label>
           <Select
-            value={selectedAlgorithm || undefined}
-            onValueChange={(value) => dispatch({ type: 'SET_ALGORITHM', payload: value as AlgorithmType })}
+            value={selectedAlgorithm || "none"}
+            onValueChange={handleAlgorithmChange}
+            // disabled={!!currentApplicationId} // Optionally disable if an app graph is loaded
           >
             <SelectTrigger id="algorithm-select" suppressHydrationWarning>
               <SelectValue placeholder="Select Algorithm" />
@@ -380,6 +413,7 @@ export function AlgorithmControls() {
               <SelectItem value="dijkstra">Dijkstra's Algorithm</SelectItem>
               <SelectItem value="prim">Prim's Algorithm</SelectItem>
               <SelectItem value="kruskal">Kruskal's Algorithm</SelectItem>
+              <SelectItem value="none">None (Manual Mode)</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -388,9 +422,9 @@ export function AlgorithmControls() {
           <div className="space-y-2">
             <Label htmlFor="start-node">Start Node</Label>
             <Select
-              value={localStartNode || undefined}
+              value={localStartNode || ""}
               onValueChange={(value) => setLocalStartNode(value)}
-              disabled={nodes.length === 0}
+              disabled={nodes.length === 0 || selectedAlgorithm !== 'dijkstra'}
             >
               <SelectTrigger id="start-node" suppressHydrationWarning>
                 <SelectValue placeholder="Select Start Node" />
@@ -419,7 +453,11 @@ export function AlgorithmControls() {
         </div>
         
         <div className="grid grid-cols-2 gap-2">
-          <Button onClick={handleRunAlgorithm} disabled={!selectedAlgorithm || (animationSteps.length > 0 && isAnimating)} suppressHydrationWarning>
+          <Button 
+            onClick={handleRunAlgorithm} 
+            disabled={!selectedAlgorithm || selectedAlgorithm === "none" || (animationSteps.length > 0 && isAnimating)} 
+            suppressHydrationWarning
+          >
             <Play className="mr-2 h-4 w-4" /> Run
           </Button>
            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0} suppressHydrationWarning>
@@ -439,7 +477,7 @@ export function AlgorithmControls() {
                 <AlertDialogHeader>
                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                 <AlertDialogDescription>
-                    This action will permanently delete the current graph. This cannot be undone.
+                    This action will permanently delete the current graph and any loaded application data. This cannot be undone.
                 </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -474,12 +512,10 @@ export function AlgorithmControls() {
         
         <ContextualHelpDialog />
 
-        {/* Conditional Separator and Graph Generation Section */}
-        {(mode === 'image' || mode === 'random') && <Separator className="my-4" />}
+        {(modeQueryParam === 'image' || modeQueryParam === 'random') && <Separator className="my-4" />}
 
-        {mode === 'image' && renderImageGraphSection()}
-        {mode === 'random' && renderRandomGraphSection()}
-        {/* If mode is 'draw' or null, no specific generation tools are shown here. User draws on canvas. */}
+        {modeQueryParam === 'image' && renderImageGraphSection()}
+        {modeQueryParam === 'random' && renderRandomGraphSection()}
         
       </CardContent>
     </Card>
