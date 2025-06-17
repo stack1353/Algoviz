@@ -1,9 +1,11 @@
 
+import Link from 'next/link';
 import { ApplicationCard } from "@/components/ApplicationCard";
 import { CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const applications = [
   {
+    id: "gps-navigation",
     algorithmName: "Dijkstra's Algorithm",
     imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "GPS navigation system visualizing a route",
@@ -13,6 +15,7 @@ const applications = [
     aiHint: "gps navigation"
   },
   {
+    id: "network-routing-ospf",
     algorithmName: "Dijkstra's Algorithm",
     imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Network routers visualizing data packet flow",
@@ -22,6 +25,7 @@ const applications = [
     aiHint: "network routers"
   },
   {
+    id: "network-design-power-cable",
     algorithmName: "Prim's Algorithm",
     imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Power grid design visualization",
@@ -31,6 +35,7 @@ const applications = [
     aiHint: "power lines"
   },
   {
+    id: "clustering-conceptual",
     algorithmName: "Prim's Algorithm",
     imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Abstract visualization of data clustering with MST",
@@ -40,6 +45,7 @@ const applications = [
     aiHint: "data points"
   },
   {
+    id: "circuit-board-design",
     algorithmName: "Kruskal's Algorithm",
     imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Circuit board design visualization with Kruskal's",
@@ -49,6 +55,7 @@ const applications = [
     aiHint: "pcb design"
   },
   {
+    id: "connecting-islands-bridges",
     algorithmName: "Kruskal's Algorithm",
     imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Islands connected by bridges visualization",
@@ -65,21 +72,27 @@ export default function ApplicationsPage() {
       <div className="text-center mb-12">
         <CardTitle className="text-3xl md:text-4xl font-headline">Real-World Applications & Visualizations</CardTitle>
         <CardDescription className="text-lg text-muted-foreground mt-2">
-          Discover how graph algorithms power everyday technologies and how their steps can be visualized in applied contexts.
+          Discover how graph algorithms power everyday technologies and how their steps can be visualized in applied contexts. Click on an application to see it in action in the editor.
         </CardDescription>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {applications.map((app) => (
-          <ApplicationCard
-            key={app.title}
-            algorithmName={app.algorithmName}
-            imageUrl={app.imageUrl}
-            imageAlt={app.imageAlt}
-            title={app.title}
-            description={app.description}
-            tags={app.tags}
-            aiHint={app.aiHint}
-          />
+          <Link 
+            key={app.id} 
+            href={`/editor?application=${app.id}&algorithm=${encodeURIComponent(app.algorithmName)}`}
+            className="block hover:scale-[1.02] transition-transform duration-200 ease-in-out focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded-lg"
+            aria-label={`Visualize ${app.title}`}
+          >
+            <ApplicationCard
+              algorithmName={app.algorithmName}
+              imageUrl={app.imageUrl}
+              imageAlt={app.imageAlt}
+              title={app.title}
+              description={app.description}
+              tags={app.tags}
+              aiHint={app.aiHint}
+            />
+          </Link>
         ))}
       </div>
     </div>
