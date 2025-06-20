@@ -271,8 +271,8 @@ export function AlgorithmControls() {
           newNodes.push({
             id: internalNodeId,
             label: aiNode.label || `N${nodeIdCounter-1}`,
-            x: NODE_RADIUS_PADDING + aiNode.x * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
-            y: NODE_RADIUS_PADDING + aiNode.y * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
+            x: NODE_RADIUS_PADDING + (1 - aiNode.x) * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
+            y: NODE_RADIUS_PADDING + (1 - aiNode.y) * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
           });
         });
         
@@ -522,6 +522,8 @@ export function AlgorithmControls() {
   );
 }
 
+
+    
 
     
 
