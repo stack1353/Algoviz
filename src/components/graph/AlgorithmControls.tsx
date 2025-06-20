@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, ChangeEvent, useCallback } from 'react';
+import React, { useState, useEffect, ChangeEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGraph } from '@/providers/GraphProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -41,7 +41,7 @@ const IMAGE_QUALITY = 0.8;
 
 export function AlgorithmControls() {
   const { state, dispatch } = useGraph();
-  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId, nextNodeId: currentNextNodeId, nextEdgeId: currentNextEdgeId, currentApplicationId } = state;
+  const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId, nextNodeId: currentNextNodeId, nextEdgeId: currentNextEdgeId } = state;
 
   const [localStartNode, setLocalStartNode] = useState('');
   const [numRandomNodes, setNumRandomNodes] = useState<string>("8");
@@ -50,6 +50,7 @@ export function AlgorithmControls() {
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [prevModeQueryParam, setPrevModeQueryParam] = useState<string | null>(null);
 
 
   const searchParams = useSearchParams();
@@ -57,16 +58,50 @@ export function AlgorithmControls() {
   const applicationQueryParam = searchParams.get('application');
   const algorithmQueryParam = searchParams.get('algorithm') as AlgorithmType;
 
+  const effectiveMode = modeQueryParam || 'draw';
+
   useEffect(() => {
     if (!initialLoadDone) {
       if (applicationQueryParam && applicationGraphs[applicationQueryParam]) {
         dispatch({ type: 'LOAD_APPLICATION_GRAPH', payload: { applicationId: applicationQueryParam } });
-      } else if (algorithmQueryParam) {
-        dispatch({ type: 'SET_ALGORITHM', payload: algorithmQueryParam });
+      } else {
+        dispatch({ type: 'RESET_GRAPH' }); // Preserves algo and speed
+        if (algorithmQueryParam) {
+          dispatch({ type: 'SET_ALGORITHM', payload: algorithmQueryParam });
+        } else if (effectiveMode === 'draw') {
+          dispatch({ type: 'SET_ALGORITHM', payload: 'none' });
+        }
       }
       setInitialLoadDone(true);
+      setPrevModeQueryParam(modeQueryParam); // Initialize prevMode
     }
-  }, [applicationQueryParam, algorithmQueryParam, dispatch, initialLoadDone]);
+  }, [applicationQueryParam, algorithmQueryParam, modeQueryParam, effectiveMode, dispatch, initialLoadDone]);
+
+
+  useEffect(() => {
+      if (initialLoadDone) {
+          const newEffectiveMode = modeQueryParam || 'draw';
+          const prevEffectiveMode = prevModeQueryParam || 'draw';
+
+          if (newEffectiveMode !== prevEffectiveMode && !applicationQueryParam) {
+              dispatch({ type: 'RESET_GRAPH' }); 
+              setLocalStartNode('');
+              setSelectedImageFile(null);
+              const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+              if (fileInput) fileInput.value = '';
+
+              if (newEffectiveMode === 'draw') {
+                  dispatch({ type: 'SET_ALGORITHM', payload: 'none' });
+              }
+          }
+      }
+      // Update prevModeQueryParam after conditions are checked and actions dispatched
+      // This ensures it reflects the state *before* the current evaluation for the *next* run.
+      if(initialLoadDone) {
+        setPrevModeQueryParam(modeQueryParam);
+      }
+  }, [modeQueryParam, initialLoadDone, applicationQueryParam, dispatch, prevModeQueryParam]);
+
 
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
@@ -74,14 +109,15 @@ export function AlgorithmControls() {
   }, [startNode]);
 
   useEffect(() => {
-    if (modeQueryParam !== 'image' && selectedImageFile) {
+    // Clear selected image if mode changes away from 'image'
+    if (effectiveMode !== 'image' && selectedImageFile) {
         setSelectedImageFile(null);
         const fileInput = document.getElementById('image-upload') as HTMLInputElement;
         if (fileInput) {
             fileInput.value = '';
         }
     }
-  }, [modeQueryParam, selectedImageFile]);
+  }, [effectiveMode, selectedImageFile]);
 
 
   const handleRunAlgorithm = () => {
@@ -105,9 +141,9 @@ export function AlgorithmControls() {
         dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
     } else if (animationSteps.length > 0 && currentStepIndex < animationSteps.length -1) {
         dispatch({ type: 'ANIMATION_STEP_FORWARD' });
-    } else if (animationSteps.length === 0){
+    } else if (animationSteps.length === 0 && selectedAlgorithm !== 'none'){
         handleRunAlgorithm();
-    } else {
+    } else if (selectedAlgorithm !== 'none') {
       dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
     }
   };
@@ -129,8 +165,11 @@ export function AlgorithmControls() {
   }, [isAnimating, animationSpeed, dispatch, state.currentStepIndex, state.animationSteps.length]);
 
 
-  const handleResetGraph = () => {
-    dispatch({ type: 'RESET_GRAPH' });
+  const handleResetFullGraph = () => {
+    dispatch({ type: 'RESET_GRAPH' }); // This now preserves algo and speed
+    if (effectiveMode === 'draw') { // If in draw mode, also reset algo to none
+      dispatch({ type: 'SET_ALGORITHM', payload: 'none'});
+    }
     setLocalStartNode('');
     setSelectedImageFile(null);
     const fileInput = document.getElementById('image-upload') as HTMLInputElement;
@@ -167,7 +206,7 @@ export function AlgorithmControls() {
 
     dispatch({ type: 'CREATE_RANDOM_GRAPH', payload: { numNodes: numNodesVal, minWeight: minWeightVal, maxWeight: maxWeightVal } });
     toast({ title: "Graph Generated", description: `Generated a random graph with ${numNodesVal} nodes.` });
-    setSelectedImageFile(null);
+    setSelectedImageFile(null); // Ensure image mode is cleared
   };
 
   const handleDeleteSelectedNode = () => {
@@ -215,7 +254,7 @@ export function AlgorithmControls() {
         }
         resolve(resizedDataUri);
       };
-      img.onerror = (error) => {
+      img.onerror = (_error) => {
         reject(new Error("Could not load image for resizing."));
       };
       img.src = imageDataUri;
@@ -257,18 +296,22 @@ export function AlgorithmControls() {
         const newNodes: GraphNode[] = [];
         const newEdges: GraphEdge[] = [];
         const aiIdToInternalIdMap = new Map<string, string>();
-        let nodeIdCounter = currentNextNodeId;
-        let edgeIdCounter = currentNextEdgeId;
+        let nodeIdCounter = 1; // Start fresh for extracted graph
+        let edgeIdCounter = 1; // Start fresh for extracted graph
         let skippedEdges = 0;
 
         aiOutput.nodes.forEach((aiNode: ExtractedNode) => {
+          const validatedX = Math.max(0, Math.min(1, aiNode.x));
+          const validatedY = Math.max(0, Math.min(1, aiNode.y));
+          
           const internalNodeId = `node-${nodeIdCounter++}`;
           aiIdToInternalIdMap.set(aiNode.id, internalNodeId);
+          
           newNodes.push({
             id: internalNodeId,
             label: aiNode.label || `N${nodeIdCounter-1}`,
-            x: NODE_RADIUS_PADDING + aiNode.x * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
-            y: NODE_RADIUS_PADDING + (1 - aiNode.y) * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
+            x: NODE_RADIUS_PADDING + validatedX * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
+            y: NODE_RADIUS_PADDING + (1 - validatedY) * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
           });
         });
 
@@ -317,13 +360,13 @@ export function AlgorithmControls() {
           });
         }
         
-        setSelectedImageFile(null);
+        setSelectedImageFile(null); // Clear after successful extraction
         const fileInput = document.getElementById('image-upload') as HTMLInputElement;
         if (fileInput) {
             fileInput.value = '';
         }
       };
-      reader.onerror = (error) => {
+      reader.onerror = (_error) => {
         toast({ title: "File Read Error", description: "Could not read the image file.", variant: "destructive" });
         setIsExtractingGraph(false);
       };
@@ -409,7 +452,7 @@ export function AlgorithmControls() {
   const handleAlgorithmChange = (value: AlgorithmType) => {
     dispatch({ type: 'SET_ALGORITHM', payload: value });
     if (value !== 'dijkstra' && state.startNode) {
-      // dispatch({ type: 'SET_START_NODE', payload: null });
+      // dispatch({ type: 'SET_START_NODE', payload: null }); // Optionally clear start node if not Dijkstra
     }
   };
 
@@ -479,7 +522,7 @@ export function AlgorithmControls() {
           >
             <Play className="mr-2 h-4 w-4" /> Run
           </Button>
-            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0} suppressHydrationWarning>
+            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0 && selectedAlgorithm === "none"} suppressHydrationWarning>
             {isAnimating ? <Pause className="mr-2 h-4 w-4" /> : <StepForward className="mr-2 h-4 w-4" />}
             {isAnimating ? "Pause" : (currentStepIndex < animationSteps.length -1 && currentStepIndex !== -1 ? "Next Step" : "Play Steps")}
           </Button>
@@ -501,7 +544,7 @@ export function AlgorithmControls() {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleResetGraph} className={buttonVariants({variant: "destructive"})}>Clear Graph</AlertDialogAction>
+                <AlertDialogAction onClick={handleResetFullGraph} className={buttonVariants({variant: "destructive"})}>Clear Graph</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
@@ -531,12 +574,12 @@ export function AlgorithmControls() {
 
         <ContextualHelpDialog />
 
-        {(modeQueryParam === 'image' || modeQueryParam === 'random') && <Separator className="my-4" />}
-
-        {modeQueryParam === 'image' && renderImageGraphSection()}
-        {modeQueryParam === 'random' && renderRandomGraphSection()}
+        { (effectiveMode === 'image' || effectiveMode === 'random') && <Separator className="my-4" /> }
+        { effectiveMode === 'image' && renderImageGraphSection() }
+        { effectiveMode === 'random' && renderRandomGraphSection() }
 
       </CardContent>
     </Card>
   );
 }
+

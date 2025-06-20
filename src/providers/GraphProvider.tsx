@@ -84,7 +84,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         messages: [],
         selectedNodeId: newNodeId, 
         animationSteps: [], currentStepIndex: -1, isAnimating: false, 
-        currentApplicationId: null, // User is modifying, so it's no longer a pure app graph
+        currentApplicationId: null, 
       };
     case 'ADD_EDGE':
       if (state.edges.some(e => 
@@ -108,7 +108,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         messages: [],
         selectedNodeId: null,
         animationSteps: [], currentStepIndex: -1, isAnimating: false, 
-        currentApplicationId: null, // User is modifying
+        currentApplicationId: null, 
       };
     case 'DELETE_NODE': {
       const { nodeId } = action.payload;
@@ -131,7 +131,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         isAnimating: false,
         messages: [`Node ${nodeId} and its edges deleted.`],
         currentVisualizationStateForAI: null,
-        currentApplicationId: null, // User is modifying
+        currentApplicationId: null, 
       };
     }
     case 'SET_SELECTED_NODE':
@@ -221,7 +221,13 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'SET_ANIMATION_SPEED':
       return { ...state, animationSpeed: action.payload };
     case 'RESET_GRAPH':
-      return { ...initialState, animationSpeed: state.animationSpeed, selectedAlgorithm: "none" };
+      return { 
+        ...initialState, // Resets nodes, edges, animationSteps, messages, etc.
+        selectedAlgorithm: state.selectedAlgorithm, // Preserve selected algorithm
+        animationSpeed: state.animationSpeed, // Preserve animation speed
+        startNode: null, // Always reset Dijkstra start node
+        currentApplicationId: null, // No longer an application graph
+      };
     case 'RESET_ANIMATION':
         const baseLabelForReset = (nodeId: string, appNodes?: Node[]) => {
             const appNode = appNodes?.find(n => n.id === nodeId);
@@ -336,9 +342,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
 
         return {
             ...initialState, 
-            animationSpeed: state.animationSpeed, 
-            selectedAlgorithm: "none",
-            startNode: null, 
+            selectedAlgorithm: state.selectedAlgorithm, // Preserve
+            animationSpeed: state.animationSpeed, // Preserve
             nodes: newGeneratedNodes,
             edges: newGeneratedEdges,
             nextNodeId: localNodeIdCounter, 
@@ -353,8 +358,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const { nodes: extractedNodes, edges: extractedEdges, nextNodeId: newNextNodeId, nextEdgeId: newNextEdgeId } = action.payload;
         return {
             ...initialState, 
-            animationSpeed: state.animationSpeed,
-            selectedAlgorithm: "none", 
+            selectedAlgorithm: state.selectedAlgorithm, // Preserve
+            animationSpeed: state.animationSpeed, // Preserve
             nodes: extractedNodes,
             edges: extractedEdges,
             nextNodeId: newNextNodeId,
@@ -371,15 +376,14 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     case 'LOAD_APPLICATION_GRAPH': {
       const { applicationId } = action.payload;
       const appData = applicationGraphs[applicationId];
-      if (!appData) return state; // Or handle error
+      if (!appData) return state; 
 
-      // Deep copy nodes and edges to prevent direct mutation of predefined data
       const newNodes = appData.nodes.map(n => ({...n}));
       const newEdges = appData.edges.map(e => ({...e}));
 
       return {
-        ...initialState, // Reset most state
-        animationSpeed: state.animationSpeed, // Keep user's speed preference
+        ...initialState, 
+        animationSpeed: state.animationSpeed, 
         nodes: newNodes,
         edges: newEdges,
         selectedAlgorithm: appData.algorithm,
