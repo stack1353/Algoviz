@@ -24,9 +24,9 @@ const features: Feature[] = [
     description: "Draw your own graphs directly on the canvas. Add nodes, connect them with weighted edges, and see algorithms run on your creations.",
     link: "/editor?mode=draw",
     linkText: "Start Drawing",
-    imageUrl: "https://placehold.co/600x400.png",
-    imageAlt: "Abstract representation of a graph being drawn",
-    aiHint: "canvas digital"
+    imageUrl: "/images/feature-interactive-canvas.png",
+    imageAlt: "Person sketching a graph on a digital tablet or a vibrant abstract representation of node connections.",
+    aiHint: "digital drawing"
   },
   {
     icon: <ImageUp className="w-8 h-8 text-primary" />,
@@ -44,8 +44,8 @@ const features: Feature[] = [
     description: "Instantly generate random graphs with a specified number of nodes and edge weight ranges to test algorithms on diverse structures.",
     link: "/editor?mode=random",
     linkText: "Generate a Graph",
-    imageUrl: "https://placehold.co/600x400.png",
-    imageAlt: "A complex, randomly generated graph structure",
+    imageUrl: "/images/feature-random-graph.png",
+    imageAlt: "A stylized, colorful, and abstract representation of a randomly generated network or graph.",
     aiHint: "abstract network"
   }
 ];
@@ -53,6 +53,18 @@ const features: Feature[] = [
 export default function LandingPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center p-4 md:p-8 relative overflow-hidden">
+      <div className="absolute inset-0 z-10">
+        <Image
+          src="/images/landing-background.png"
+          alt="Abstract technological background with glowing lines or network connections."
+          layout="fill"
+          objectFit="cover"
+          quality={80}
+          data-ai-hint="abstract technology"
+          className="opacity-30 dark:opacity-20"
+        />
+         <div className="absolute inset-0 bg-background/70 dark:bg-background/80"></div>
+      </div>
       <div className="relative z-20">
         <main className="container mx-auto">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold font-headline tracking-tight text-foreground">
