@@ -35,8 +35,8 @@ const features: Feature[] = [
     link: "/editor?mode=image",
     linkText: "Upload an Image",
     imageUrl: "/images/feature-graph-from-image.png",
-    imageAlt: "Illustration of AI extracting a graph structure from a hand-drawn image",
-    aiHint: "ai graph"
+    imageAlt: "Computer screen showing a complex node-based graph being analyzed by AI",
+    aiHint: "node editor"
   },
   {
     icon: <Shuffle className="w-8 h-8 text-primary" />,
