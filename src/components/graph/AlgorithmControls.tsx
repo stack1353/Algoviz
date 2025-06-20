@@ -272,7 +272,7 @@ export function AlgorithmControls() {
             id: internalNodeId,
             label: aiNode.label || `N${nodeIdCounter-1}`,
             x: NODE_RADIUS_PADDING + aiNode.x * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
-            y: NODE_RADIUS_PADDING + aiNode.y * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING),
+            y: NODE_RADIUS_PADDING + (1 - aiNode.y) * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING), // Corrected Y for potential inversion
           });
         });
         
@@ -521,3 +521,6 @@ export function AlgorithmControls() {
     </Card>
   );
 }
+
+
+    
