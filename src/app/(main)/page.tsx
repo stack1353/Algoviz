@@ -34,9 +34,9 @@ const features: Feature[] = [
     description: "Upload an image of a graph, and our AI will attempt to extract its structure, allowing you to visualize algorithms on it.",
     link: "/editor?mode=image",
     linkText: "Upload an Image",
-    imageUrl: "https://placehold.co/600x400.png",
-    imageAlt: "An image being processed by AI to extract a graph",
-    aiHint: "ai vision"
+    imageUrl: "/images/feature-graph-from-image.png",
+    imageAlt: "Illustration of AI extracting a graph structure from a hand-drawn image",
+    aiHint: "ai graph"
   },
   {
     icon: <Shuffle className="w-8 h-8 text-primary" />,
