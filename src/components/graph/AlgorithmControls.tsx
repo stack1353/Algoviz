@@ -271,8 +271,8 @@ export function AlgorithmControls() {
           newNodes.push({
             id: internalNodeId,
             label: aiNode.label || `N${nodeIdCounter-1}`,
-            x: NODE_RADIUS_PADDING + aiNode.x * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING),
-            y: NODE_RADIUS_PADDING + (1 - aiNode.y) * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING), // Corrected Y for potential inversion
+            x: NODE_RADIUS_PADDING + (1 - aiNode.x) * (RANDOM_GRAPH_CANVAS_WIDTH - 2 * NODE_RADIUS_PADDING), // Horizontal flip
+            y: NODE_RADIUS_PADDING + (1 - aiNode.y) * (RANDOM_GRAPH_CANVAS_HEIGHT - 2 * NODE_RADIUS_PADDING), // Vertical flip
           });
         });
         
