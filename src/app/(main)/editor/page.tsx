@@ -1,7 +1,7 @@
 "use client";
 
 import { GraphCanvas } from "@/components/graph/GraphCanvas";
-import { AlgorithmControls } from "@/components/graph/AlgorithmControls";
+import AlgorithmControls from "@/components/graph/AlgorithmControls";
 import { InfoPanel } from "@/components/graph/InfoPanel";
 
 export default function EditorPage() {
