@@ -19,8 +19,9 @@ interface GraphState extends Graph {
   currentVisualizationStateForAI: string | null;
   nextNodeId: number;
   nextEdgeId: number;
-  selectedNodeId: string | null; // For deletion
-  currentApplicationId: string | null; // To know which app graph is loaded
+  selectedNodeId: string | null;
+  selectedEdgeId: string | null; // For editing/deleting
+  currentApplicationId: string | null;
 }
 
 const initialState: GraphState = {
@@ -37,6 +38,7 @@ const initialState: GraphState = {
   nextNodeId: 1,
   nextEdgeId: 1,
   selectedNodeId: null,
+  selectedEdgeId: null,
   currentApplicationId: null,
 };
 
@@ -52,6 +54,9 @@ type Action =
   | { type: 'ADD_EDGE'; payload: { source: string; target: string; weight: number; isDirected: boolean } }
   | { type: 'DELETE_NODE'; payload: { nodeId: string } }
   | { type: 'SET_SELECTED_NODE'; payload: string | null }
+  | { type: 'DELETE_EDGE'; payload: { edgeId: string } }
+  | { type: 'UPDATE_EDGE_WEIGHT'; payload: { edgeId: string; newWeight: number } }
+  | { type: 'SET_SELECTED_EDGE'; payload: string | null }
   | { type: 'SET_ALGORITHM'; payload: AlgorithmType }
   | { type: 'SET_START_NODE'; payload: string | null }
   | { type: 'RUN_ALGORITHM' }
@@ -83,6 +88,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nextNodeId: state.nextNodeId + 1, 
         messages: [],
         selectedNodeId: newNodeId, 
+        selectedEdgeId: null,
         animationSteps: [], currentStepIndex: -1, isAnimating: false, 
         currentApplicationId: null, 
       };
@@ -107,6 +113,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nextEdgeId: state.nextEdgeId + 1, 
         messages: [],
         selectedNodeId: null,
+        selectedEdgeId: null,
         animationSteps: [], currentStepIndex: -1, isAnimating: false, 
         currentApplicationId: null, 
       };
@@ -125,6 +132,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         nodes: remainingNodes,
         edges: remainingEdges,
         selectedNodeId: null,
+        selectedEdgeId: null,
         startNode: newStartNode,
         animationSteps: [], 
         currentStepIndex: -1,
@@ -135,9 +143,27 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       };
     }
     case 'SET_SELECTED_NODE':
-      return { ...state, selectedNodeId: action.payload };
+      return { ...state, selectedNodeId: action.payload, selectedEdgeId: null };
+    case 'SET_SELECTED_EDGE':
+      return { ...state, selectedEdgeId: action.payload, selectedNodeId: null };
+    case 'DELETE_EDGE':
+      return {
+        ...state,
+        edges: state.edges.filter(edge => edge.id !== action.payload.edgeId),
+        selectedEdgeId: null,
+      };
+    case 'UPDATE_EDGE_WEIGHT':
+      return {
+        ...state,
+        edges: state.edges.map(edge =>
+          edge.id === action.payload.edgeId
+            ? { ...edge, weight: action.payload.newWeight }
+            : edge
+        ),
+        selectedEdgeId: null,
+      };
     case 'SET_ALGORITHM':
-      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null };
+      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null, selectedEdgeId: null };
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
     case 'RUN_ALGORITHM':
@@ -152,7 +178,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       } else if (state.selectedAlgorithm === 'kruskal') {
         steps = kruskal(currentGraph);
       }
-      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null };
+      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null, selectedEdgeId: null };
     case 'ANIMATION_STEP_FORWARD':
       if (state.currentStepIndex < state.animationSteps.length - 1) {
         const nextStepIndex = state.currentStepIndex + 1;
@@ -222,11 +248,11 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       return { ...state, animationSpeed: action.payload };
     case 'RESET_GRAPH':
       return { 
-        ...initialState, // Resets nodes, edges, animationSteps, messages, etc.
-        selectedAlgorithm: state.selectedAlgorithm, // Preserve selected algorithm
-        animationSpeed: state.animationSpeed, // Preserve animation speed
-        startNode: null, // Always reset Dijkstra start node
-        currentApplicationId: null, // No longer an application graph
+        ...initialState,
+        selectedAlgorithm: state.selectedAlgorithm,
+        animationSpeed: state.animationSpeed,
+        startNode: null,
+        currentApplicationId: null,
       };
     case 'RESET_ANIMATION':
         const baseLabelForReset = (nodeId: string, appNodes?: Node[]) => {
@@ -244,6 +270,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         edges: state.edges.map(e => ({...e, color: undefined})),
         currentVisualizationStateForAI: null,
         selectedNodeId: null,
+        selectedEdgeId: null,
       };
     case 'ADD_MESSAGE':
       return { ...state, messages: [action.payload, ...state.messages.slice(0,99)] };
@@ -342,8 +369,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
 
         return {
             ...initialState, 
-            selectedAlgorithm: state.selectedAlgorithm, // Preserve
-            animationSpeed: state.animationSpeed, // Preserve
+            selectedAlgorithm: state.selectedAlgorithm,
+            animationSpeed: state.animationSpeed,
             nodes: newGeneratedNodes,
             edges: newGeneratedEdges,
             nextNodeId: localNodeIdCounter, 
@@ -351,6 +378,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             messages: [`Generated random graph with ${numNodes} nodes.`],
             currentVisualizationStateForAI: null,
             selectedNodeId: null,
+            selectedEdgeId: null,
             currentApplicationId: null,
         };
     }
@@ -358,8 +386,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         const { nodes: extractedNodes, edges: extractedEdges, nextNodeId: newNextNodeId, nextEdgeId: newNextEdgeId } = action.payload;
         return {
             ...initialState, 
-            selectedAlgorithm: state.selectedAlgorithm, // Preserve
-            animationSpeed: state.animationSpeed, // Preserve
+            selectedAlgorithm: state.selectedAlgorithm,
+            animationSpeed: state.animationSpeed,
             nodes: extractedNodes,
             edges: extractedEdges,
             nextNodeId: newNextNodeId,
@@ -367,6 +395,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             messages: [`Graph extracted from image. Note: AI generation may not be 100% accurate. The graph is now fully editable.`],
             currentVisualizationStateForAI: "Graph loaded from image. The user has been notified that the extracted graph is an editable approximation.",
             selectedNodeId: null,
+            selectedEdgeId: null,
             isAnimating: false,
             currentStepIndex: -1,
             animationSteps: [],
