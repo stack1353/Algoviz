@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useGraph } from '@/providers/GraphProvider';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -30,14 +30,11 @@ import { extractGraphFromImage, type ExtractGraphFromImageInput, type ExtractGra
 import { Loader } from '@/components/ui/loader';
 import { applicationGraphs } from '@/data/application-graphs';
 
-
 const RANDOM_GRAPH_CANVAS_WIDTH = 800;
 const RANDOM_GRAPH_CANVAS_HEIGHT = 600;
 const NODE_RADIUS_PADDING = 50;
-
 const MAX_IMAGE_DIMENSION = 1024;
 const IMAGE_QUALITY = 0.8;
-
 
 export default function AlgorithmControls() {
   const { state, dispatch } = useGraph();
@@ -52,6 +49,8 @@ export default function AlgorithmControls() {
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [prevModeQueryParam, setPrevModeQueryParam] = useState<string | null>(null);
 
+  const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
   const searchParams = useSearchParams();
   const modeQueryParam = searchParams.get('mode');
@@ -61,11 +60,20 @@ export default function AlgorithmControls() {
   const effectiveMode = modeQueryParam || 'draw';
 
   useEffect(() => {
-    if (!initialLoadDone) {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!initialLoadDone && isMountedRef.current) {
       if (applicationQueryParam && applicationGraphs[applicationQueryParam]) {
         dispatch({ type: 'LOAD_APPLICATION_GRAPH', payload: { applicationId: applicationQueryParam } });
       } else {
-        // This handles initial load for non-application routes
         dispatch({ type: 'RESET_GRAPH' }); 
         if (algorithmQueryParam) {
           dispatch({ type: 'SET_ALGORITHM', payload: algorithmQueryParam });
@@ -78,30 +86,25 @@ export default function AlgorithmControls() {
     }
   }, [applicationQueryParam, algorithmQueryParam, modeQueryParam, effectiveMode, dispatch, initialLoadDone]);
 
-
   useEffect(() => {
-      if (initialLoadDone) {
-          const newEffectiveMode = modeQueryParam || 'draw';
-          const prevEffectiveMode = prevModeQueryParam || 'draw';
+    if (initialLoadDone) {
+      const newEffectiveMode = modeQueryParam || 'draw';
+      const prevEffectiveMode = prevModeQueryParam || 'draw';
 
-          if (newEffectiveMode !== prevEffectiveMode && !applicationQueryParam) {
-              dispatch({ type: 'RESET_GRAPH' }); 
-              setLocalStartNode('');
-              setSelectedImageFile(null);
-              const fileInput = document.getElementById('image-upload') as HTMLInputElement;
-              if (fileInput) fileInput.value = '';
+      if (newEffectiveMode !== prevEffectiveMode && !applicationQueryParam) {
+        dispatch({ type: 'RESET_GRAPH' }); 
+        setLocalStartNode('');
+        setSelectedImageFile(null);
+        const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+        if (fileInput) fileInput.value = '';
 
-              if (newEffectiveMode === 'draw') {
-                  dispatch({ type: 'SET_ALGORITHM', payload: 'none' });
-              }
-          }
+        if (newEffectiveMode === 'draw') {
+          dispatch({ type: 'SET_ALGORITHM', payload: 'none' });
+        }
       }
-      
-      if(initialLoadDone) {
-        setPrevModeQueryParam(modeQueryParam);
-      }
+      setPrevModeQueryParam(modeQueryParam);
+    }
   }, [modeQueryParam, initialLoadDone, applicationQueryParam, dispatch, prevModeQueryParam]);
-
 
   useEffect(() => {
     if (startNode) setLocalStartNode(startNode);
@@ -110,21 +113,34 @@ export default function AlgorithmControls() {
 
   useEffect(() => {
     if (effectiveMode !== 'image' && selectedImageFile) {
-        setSelectedImageFile(null);
-        const fileInput = document.getElementById('image-upload') as HTMLInputElement;
-        if (fileInput) {
-            fileInput.value = '';
-        }
+      setSelectedImageFile(null);
+      const fileInput = document.getElementById('image-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     }
   }, [effectiveMode, selectedImageFile]);
 
+  useEffect(() => {
+    if (animationIntervalRef.current) {
+      clearInterval(animationIntervalRef.current);
+    }
+    if (isAnimating && state.currentStepIndex < state.animationSteps.length - 1) {
+      animationIntervalRef.current = setInterval(() => {
+        dispatch({ type: 'ANIMATION_STEP_FORWARD' });
+      }, animationSpeed);
+    }
+    return () => {
+      if (animationIntervalRef.current) {
+        clearInterval(animationIntervalRef.current);
+      }
+    };
+  }, [isAnimating, animationSpeed, dispatch, state.currentStepIndex, state.animationSteps.length]);
 
   const handleRunAlgorithm = () => {
     dispatch({ type: 'RESET_NODE_EDGE_VISUALS' });
     dispatch({ type: 'CLEAR_NODE_LABELS' });
     dispatch({ type: 'CLEAR_MESSAGES' });
     if (selectedAlgorithm === 'dijkstra' && !localStartNode) {
-        toast({ title: "Missing Start Node", description: "Please select a start node for Dijkstra's algorithm.", variant: "destructive" });
+      toast({ title: "Missing Start Node", description: "Please select a start node for Dijkstra's algorithm.", variant: "destructive" });
       return;
     }
     if (selectedAlgorithm === 'dijkstra') {
@@ -146,23 +162,6 @@ export default function AlgorithmControls() {
       dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
     }
   };
-
-  let animationInterval: NodeJS.Timeout | null = null;
-
-  useEffect(() => {
-    if (isAnimating && state.currentStepIndex < state.animationSteps.length - 1) {
-      animationInterval = setInterval(() => {
-        dispatch({ type: 'ANIMATION_STEP_FORWARD' });
-      }, animationSpeed);
-    } else if (isAnimating && state.currentStepIndex >= state.animationSteps.length -1) {
-      dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
-    }
-
-    return () => {
-      if (animationInterval) clearInterval(animationInterval);
-    };
-  }, [isAnimating, animationSpeed, dispatch, state.currentStepIndex, state.animationSteps.length]);
-
 
   const handleResetFullGraph = () => {
     dispatch({ type: 'RESET_GRAPH' }); 
@@ -274,6 +273,7 @@ export default function AlgorithmControls() {
       const reader = new FileReader();
       reader.readAsDataURL(selectedImageFile);
       reader.onload = async () => {
+        if (!isMountedRef.current) return;
         const originalImageDataUri = reader.result as string;
         let imageDataUriForAI = originalImageDataUri;
 
@@ -285,6 +285,8 @@ export default function AlgorithmControls() {
 
         const input: ExtractGraphFromImageInput = { imageDataUri: imageDataUriForAI };
         const aiOutput: ExtractGraphFromImageOutput = await extractGraphFromImage(input);
+        
+        if (!isMountedRef.current) return;
 
         if (aiOutput.error || !aiOutput.nodes || aiOutput.nodes.length === 0) {
           toast({ title: "AI Extraction Failed", description: aiOutput.error || "Could not extract a graph from the image.", variant: "destructive" });
@@ -367,14 +369,18 @@ export default function AlgorithmControls() {
         }
       };
       reader.onerror = (_error) => {
+        if (!isMountedRef.current) return;
         toast({ title: "File Read Error", description: "Could not read the image file.", variant: "destructive" });
         setIsExtractingGraph(false);
       };
     } catch (e) {
+      if (!isMountedRef.current) return;
       const errorMessage = e instanceof Error ? e.message : "An unknown error occurred during AI processing.";
       toast({ title: "AI Extraction Error", description: errorMessage, variant: "destructive" });
     } finally {
-      setIsExtractingGraph(false);
+      if (isMountedRef.current) {
+        setIsExtractingGraph(false);
+      }
     }
   };
 
@@ -391,11 +397,10 @@ export default function AlgorithmControls() {
           accept="image/png, image/jpeg, image/webp"
           onChange={handleImageFileChange}
           className="text-sm"
-          suppressHydrationWarning
         />
         {selectedImageFile && <p className="text-xs text-muted-foreground">Selected: {selectedImageFile.name}</p>}
       </div>
-      <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph} suppressHydrationWarning>
+      <Button onClick={handleExtractGraph} className="w-full" variant="secondary" disabled={!selectedImageFile || isExtractingGraph}>
         {isExtractingGraph ? <Loader size={16} className="mr-2"/> : <BrainCircuit className="mr-2 h-4 w-4" />}
         Process Image to Graph
       </Button>
@@ -416,7 +421,6 @@ export default function AlgorithmControls() {
           onChange={(e) => setNumRandomNodes(e.target.value)}
           min="2"
           max="50"
-          suppressHydrationWarning
         />
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -428,7 +432,6 @@ export default function AlgorithmControls() {
             value={minRandomWeight}
             onChange={(e) => setMinRandomWeight(e.target.value)}
             min="1"
-            suppressHydrationWarning
           />
         </div>
         <div className="space-y-1">
@@ -439,11 +442,10 @@ export default function AlgorithmControls() {
             value={maxRandomWeight}
             onChange={(e) => setMaxRandomWeight(e.target.value)}
             min="1"
-            suppressHydrationWarning
           />
         </div>
       </div>
-      <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary" suppressHydrationWarning>
+      <Button onClick={handleGenerateRandomGraph} className="w-full" variant="secondary">
         <Shuffle className="mr-2 h-4 w-4" /> Generate Random Graph
       </Button>
     </div>
@@ -468,7 +470,7 @@ export default function AlgorithmControls() {
             value={selectedAlgorithm || "none"}
             onValueChange={handleAlgorithmChange}
           >
-            <SelectTrigger id="algorithm-select" suppressHydrationWarning>
+            <SelectTrigger id="algorithm-select">
               <SelectValue placeholder="Select Algorithm" />
             </SelectTrigger>
             <SelectContent>
@@ -488,7 +490,7 @@ export default function AlgorithmControls() {
               onValueChange={(value) => setLocalStartNode(value)}
               disabled={nodes.length === 0 || selectedAlgorithm !== 'dijkstra'}
             >
-              <SelectTrigger id="start-node" suppressHydrationWarning>
+              <SelectTrigger id="start-node">
                 <SelectValue placeholder="Select Start Node" />
               </SelectTrigger>
               <SelectContent>
@@ -518,22 +520,21 @@ export default function AlgorithmControls() {
           <Button
             onClick={handleRunAlgorithm}
             disabled={!selectedAlgorithm || selectedAlgorithm === "none" || (animationSteps.length > 0 && isAnimating)}
-            suppressHydrationWarning
           >
             <Play className="mr-2 h-4 w-4" /> Run
           </Button>
-            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0 && selectedAlgorithm === "none"} suppressHydrationWarning>
+            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0 && selectedAlgorithm === "none"}>
             {isAnimating ? <Pause className="mr-2 h-4 w-4" /> : <StepForward className="mr-2 h-4 w-4" />}
             {isAnimating ? "Pause" : (currentStepIndex < animationSteps.length -1 && currentStepIndex !== -1 ? "Next Step" : "Play Steps")}
           </Button>
         </div>
           <div className="grid grid-cols-2 gap-2">
-          <Button onClick={handleResetAnimation} variant="outline" suppressHydrationWarning>
+          <Button onClick={handleResetAnimation} variant="outline">
             <RotateCcw className="mr-2 h-4 w-4" /> Reset Sim
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="destructive" suppressHydrationWarning><Zap className="mr-2 h-4 w-4" /> Clear Graph</Button>
+                <Button variant="destructive"><Zap className="mr-2 h-4 w-4" /> Clear Graph</Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -553,7 +554,7 @@ export default function AlgorithmControls() {
         { effectiveMode === 'draw' &&
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full" disabled={!selectedNodeId} suppressHydrationWarning>
+                <Button variant="outline" className="w-full" disabled={!selectedNodeId}>
                   <Trash2 className="mr-2 h-4 w-4" /> Delete Selected Node
                 </Button>
               </AlertDialogTrigger>
@@ -584,5 +585,3 @@ export default function AlgorithmControls() {
     </Card>
   );
 }
-
-    
