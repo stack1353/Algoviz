@@ -364,8 +364,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             edges: extractedEdges,
             nextNodeId: newNextNodeId,
             nextEdgeId: newNextEdgeId,
-            messages: [`Graph extracted from image with ${extractedNodes.length} nodes and ${extractedEdges.length} edges.`],
-            currentVisualizationStateForAI: "Graph loaded from image.",
+            messages: [`Graph extracted from image. Note: AI generation may not be 100% accurate. The graph is now fully editable.`],
+            currentVisualizationStateForAI: "Graph loaded from image. The user has been notified that the extracted graph is an editable approximation.",
             selectedNodeId: null,
             isAnimating: false,
             currentStepIndex: -1,
@@ -419,4 +419,3 @@ export const useGraph = () => {
   }
   return context;
 };
-

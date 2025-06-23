@@ -41,9 +41,9 @@ export default function AlgorithmControls() {
   const { selectedAlgorithm, startNode, nodes, animationSpeed, isAnimating, animationSteps, currentStepIndex, selectedNodeId } = state;
 
   const [localStartNode, setLocalStartNode] = useState('');
-  const [numRandomNodes, setNumRandomNodes] = useState<string>("8");
-  const [minRandomWeight, setMinRandomWeight] = useState<string>("1");
-  const [maxRandomWeight, setMaxRandomWeight] = useState<string>("10");
+  const [numRandomNodes, setNumRandomNodes] = useState("8");
+  const [minRandomWeight, setMinRandomWeight] = useState("1");
+  const [maxRandomWeight, setMaxRandomWeight] = useState("10");
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
@@ -349,9 +349,9 @@ export default function AlgorithmControls() {
           } 
         });
         
-        toast({ 
-          title: "Graph Extracted!", 
-          description: `Successfully generated graph with ${newNodes.length} nodes and ${newEdges.length} edges.` 
+        toast({
+          title: "Graph Extracted & Ready for Editing!",
+          description: "The AI-generated graph is an approximation. You can now click to add/delete nodes and edges to perfect it."
         });
         
         if (skippedEdges > 0) {
