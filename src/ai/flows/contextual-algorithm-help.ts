@@ -46,7 +46,7 @@ async (input) => {
 
 const algorithmHelpPrompt = ai.definePrompt({
   name: 'algorithmHelpPrompt',
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-1.5-pro',
   input: {schema: GetAlgorithmHelpInputSchema},
   output: {schema: GetAlgorithmHelpOutputSchema},
   tools: [graphTheoryExamplesTool],

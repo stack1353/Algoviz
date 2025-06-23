@@ -50,7 +50,7 @@ export async function extractGraphFromImage(input: ExtractGraphFromImageInput): 
 
 const extractGraphPrompt = ai.definePrompt({
   name: 'extractGraphFromImagePrompt',
-  model: 'googleai/gemini-1.5-flash',
+  model: 'googleai/gemini-1.5-pro',
   input: {schema: ExtractGraphFromImageInputSchema},
   output: {schema: ExtractGraphFromImageOutputSchema},
   prompt: `You are an expert system designed to analyze images of graphs and extract their structure.
