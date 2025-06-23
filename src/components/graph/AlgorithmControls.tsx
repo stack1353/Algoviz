@@ -551,29 +551,27 @@ export default function AlgorithmControls() {
           </AlertDialog>
         </div>
 
-        { effectiveMode === 'draw' &&
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" className="w-full" disabled={!selectedNodeId}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Selected Node
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This action will delete node {selectedNodeId && (nodes.find(n=>n.id===selectedNodeId)?.label || selectedNodeId)} and all its connected edges. This cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteSelectedNode} className={buttonVariants({variant: "destructive"})}>
-                    Delete Node
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-        }
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" className="w-full" disabled={!selectedNodeId}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete Selected Node
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action will delete node {selectedNodeId && (nodes.find(n=>n.id===selectedNodeId)?.label || selectedNodeId)} and all its connected edges. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteSelectedNode} className={buttonVariants({variant: "destructive"})}>
+                Delete Node
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <ContextualHelpDialog />
 
