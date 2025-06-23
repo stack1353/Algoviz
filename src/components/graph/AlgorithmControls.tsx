@@ -154,7 +154,7 @@ export default function AlgorithmControls() {
   const handleAnimationToggle = () => {
     if (isAnimating) {
         dispatch({ type: 'TOGGLE_ANIMATION_PLAY_PAUSE' });
-    } else if (animationSteps.length > 0 && currentStepIndex < animationSteps.length -1) {
+    } else if (animationSteps.length > 0 && currentStepIndex < animationSteps.length - 1) {
         dispatch({ type: 'ANIMATION_STEP_FORWARD' });
     } else if (animationSteps.length === 0 && selectedAlgorithm !== 'none'){
         handleRunAlgorithm();
@@ -470,7 +470,7 @@ export default function AlgorithmControls() {
             value={selectedAlgorithm || "none"}
             onValueChange={handleAlgorithmChange}
           >
-            <SelectTrigger id="algorithm-select">
+            <SelectTrigger id="algorithm-select" suppressHydrationWarning={true}>
               <SelectValue placeholder="Select Algorithm" />
             </SelectTrigger>
             <SelectContent>
@@ -490,7 +490,7 @@ export default function AlgorithmControls() {
               onValueChange={(value) => setLocalStartNode(value)}
               disabled={nodes.length === 0 || selectedAlgorithm !== 'dijkstra'}
             >
-              <SelectTrigger id="start-node">
+              <SelectTrigger id="start-node" suppressHydrationWarning={true}>
                 <SelectValue placeholder="Select Start Node" />
               </SelectTrigger>
               <SelectContent>
