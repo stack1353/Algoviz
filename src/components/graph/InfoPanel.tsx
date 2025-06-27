@@ -36,7 +36,7 @@ export function InfoPanel() {
                         <TableBody>
                             {distanceMatrix.data.map((row, i) => (
                                 <TableRow key={i}>
-                                    <TableHead className="font-bold">{distanceMatrix.nodeLabels[i]}</TableHead>
+                                    <TableCell className="font-medium text-muted-foreground">{distanceMatrix.nodeLabels[i]}</TableCell>
                                     {row.map((val, j) => (
                                         <TableCell key={j} className="text-center font-mono">
                                             {String(val)}
@@ -49,7 +49,7 @@ export function InfoPanel() {
                 </ScrollArea>
             </div>
         )}
-        <ScrollArea className="h-full pr-4 mt-2 flex-grow">
+        <ScrollArea className="flex-grow min-h-0 pr-4 mt-2">
           {messages.length === 0 && !currentStepMessage && <p className="text-sm text-muted-foreground">Run an algorithm to see its steps here.</p>}
           {currentStepMessage && (
             <div className="mb-2 p-2 bg-accent/10 border border-accent/30 rounded-md">
