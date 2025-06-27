@@ -21,15 +21,16 @@ export interface Graph {
   edges: Edge[];
 }
 
-export type AlgorithmType = "dijkstra" | "prim" | "kruskal" | "none" | null;
+export type AlgorithmType = "dijkstra" | "prim" | "kruskal" | "floyd-warshall" | "none" | null;
 
 export interface AnimationStep {
-  type: "highlight-node" | "highlight-edge" | "update-node-label" | "message" | "reset-colors" | "clear-labels";
+  type: "highlight-node" | "highlight-edge" | "update-node-label" | "message" | "reset-colors" | "clear-labels" | "update-matrix";
   nodeId?: string;
   edgeId?: string;
   label?: string;
   color?: string;
   message?: string;
+  payload?: { matrix: (number | string)[][]; nodeLabels: string[] }; // For update-matrix
   nodesToHighlight?: string[];
   edgesToHighlight?: string[];
   descriptionForAI?: string; // State description for AI help

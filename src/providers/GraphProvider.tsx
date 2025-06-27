@@ -6,6 +6,7 @@ import type { Node, Edge, Graph, AlgorithmType, AnimationStep, ApplicationGraphD
 import { dijkstra } from '@/algorithms/dijkstra';
 import { prim } from '@/algorithms/prim';
 import { kruskal } from '@/algorithms/kruskal';
+import { floydWarshall } from '@/algorithms/floydWarshall';
 import { applicationGraphs } from '@/data/application-graphs';
 
 interface GraphState extends Graph {
@@ -22,6 +23,7 @@ interface GraphState extends Graph {
   selectedNodeId: string | null;
   selectedEdgeId: string | null; // For editing/deleting
   currentApplicationId: string | null;
+  distanceMatrix: { data: (number | string)[][]; nodeLabels: string[] } | null;
 }
 
 const initialState: GraphState = {
@@ -40,6 +42,7 @@ const initialState: GraphState = {
   selectedNodeId: null,
   selectedEdgeId: null,
   currentApplicationId: null,
+  distanceMatrix: null,
 };
 
 // Constants for random graph generation
@@ -163,7 +166,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         selectedEdgeId: null,
       };
     case 'SET_ALGORITHM':
-      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null, selectedEdgeId: null };
+      return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null, selectedEdgeId: null, distanceMatrix: null };
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
     case 'RUN_ALGORITHM':
@@ -177,8 +180,10 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         steps = prim(currentGraph);
       } else if (state.selectedAlgorithm === 'kruskal') {
         steps = kruskal(currentGraph);
+      } else if (state.selectedAlgorithm === 'floyd-warshall') {
+        steps = floydWarshall(currentGraph);
       }
-      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null, selectedEdgeId: null };
+      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null, selectedEdgeId: null, distanceMatrix: null };
     case 'ANIMATION_STEP_FORWARD':
       if (state.currentStepIndex < state.animationSteps.length - 1) {
         const nextStepIndex = state.currentStepIndex + 1;
@@ -187,6 +192,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         let newEdges = [...state.edges];
         let newMessages = [...state.messages];
         let newVisStateAI = state.currentVisualizationStateForAI;
+        let newDistanceMatrix = state.distanceMatrix;
 
         if(currentStep.descriptionForAI) {
           newVisStateAI = currentStep.descriptionForAI;
@@ -210,6 +216,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             };
             const appGraphData = state.currentApplicationId ? applicationGraphs[state.currentApplicationId] : undefined;
             newNodes = newNodes.map(n => ({ ...n, label: baseLabel(n.id, appGraphData?.nodes) }));
+        } else if (currentStep.type === "update-matrix" && currentStep.payload) {
+            newDistanceMatrix = { data: currentStep.payload.matrix, nodeLabels: currentStep.payload.nodeLabels };
         }
         
         return { 
@@ -220,6 +228,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
             edges: newEdges,
             messages: newMessages,
             currentVisualizationStateForAI: newVisStateAI,
+            distanceMatrix: newDistanceMatrix,
         };
       }
       return { ...state, isAnimating: false };
@@ -241,6 +250,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
           nodes: resetNodes,
           edges: resetEdges,
           currentVisualizationStateForAI: null,
+          distanceMatrix: null,
         };
       }
       return { ...state, isAnimating: !state.isAnimating };
@@ -253,6 +263,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         animationSpeed: state.animationSpeed,
         startNode: null,
         currentApplicationId: null,
+        distanceMatrix: null,
       };
     case 'RESET_ANIMATION':
         const baseLabelForReset = (nodeId: string, appNodes?: Node[]) => {
@@ -271,6 +282,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
         currentVisualizationStateForAI: null,
         selectedNodeId: null,
         selectedEdgeId: null,
+        distanceMatrix: null,
       };
     case 'ADD_MESSAGE':
       return { ...state, messages: [action.payload, ...state.messages.slice(0,99)] };

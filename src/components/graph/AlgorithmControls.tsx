@@ -477,6 +477,7 @@ export default function AlgorithmControls() {
               <SelectItem value="dijkstra">Dijkstra's Algorithm</SelectItem>
               <SelectItem value="prim">Prim's Algorithm</SelectItem>
               <SelectItem value="kruskal">Kruskal's Algorithm</SelectItem>
+              <SelectItem value="floyd-warshall">Floyd-Warshall Algorithm</SelectItem>
               <SelectItem value="none">None (Manual Mode)</SelectItem>
             </SelectContent>
           </Select>
