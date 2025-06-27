@@ -7,7 +7,7 @@ const applications = [
   {
     id: "gps-navigation",
     algorithmName: "Dijkstra's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/app-gps-navigation.png",
     imageAlt: "GPS navigation system visualizing a route",
     title: "GPS Route Planning",
     description: "Visualize on a city map: intersections as nodes, roads as edges (travel time/distance). Select start/end points. Animation: Dijkstra explores roads (blue highlights), finalized shortest path nodes (green), current node pulses. The final route is drawn in orange, showing total travel time/distance. Illustrates optimal GPS routing.",
@@ -17,7 +17,7 @@ const applications = [
   {
     id: "network-routing-ospf",
     algorithmName: "Dijkstra's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/app-network-routing.png",
     imageAlt: "Network routers visualizing data packet flow",
     title: "Network Routing (OSPF)",
     description: "Visualize on a network diagram: routers as nodes, links as edges (latency/cost). Select source/destination routers. Animation: Links turn blue as explored. A data packet icon moves along the final shortest path. Simulate link failures to see Dijkstra find new optimal routes, showing network resilience.",
@@ -27,7 +27,7 @@ const applications = [
   {
     id: "network-design-power-cable",
     algorithmName: "Prim's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/app-power-grid.png",
     imageAlt: "Power grid design visualization",
     title: "Power Grid Design",
     description: "Visualize on a canvas: points are houses/substations. Use pre-set scenarios (e.g., connect 5 towns). Animation: Prim's starts from one point; the MST grows by adding the cheapest edge to an unlinked point. Highlighted edges/nodes show how all points connect with minimum 'cable length'. Output: Total Minimum Cable Length.",
@@ -37,7 +37,7 @@ const applications = [
   {
     id: "clustering-conceptual",
     algorithmName: "Prim's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/app-data-clustering.png",
     imageAlt: "Abstract visualization of data clustering with MST",
     title: "Conceptual Data Clustering",
     description: "Visualize on a 2D plane: data points as nodes, edges weighted by distance. Animation: Prim's builds an MST connecting all data points. Post-Processing: Highlight and 'remove' the longest MST edges; this visually separates points into natural clusters, showing how MSTs find data backbones.",
@@ -47,7 +47,7 @@ const applications = [
   {
     id: "circuit-board-design",
     algorithmName: "Kruskal's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/app-circuit-board.png",
     imageAlt: "Circuit board design visualization with Kruskal's",
     title: "Circuit Board Connections",
     description: "Visualize on a board: components as nodes, potential wires as edges sorted by cost. Animation: Kruskal iterates: if a wire (edge) doesn't form a cycle, it's added (solid color); if it does, it's discarded (flashes red). Shows cycle avoidance and minimizing material. Output: Total Minimum Wire Length.",
@@ -57,7 +57,7 @@ const applications = [
   {
     id: "connecting-islands-bridges",
     algorithmName: "Kruskal's Algorithm",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/app-island-bridges.png",
     imageAlt: "Islands connected by bridges visualization",
     title: "Connecting Islands (Bridges)",
     description: "Visualize islands as nodes, potential bridges as edges sorted by construction cost. Animation: Add the cheapest bridges one by one, skipping any that create redundant paths (cycles), resulting in a minimum-cost connected network of bridges.",
