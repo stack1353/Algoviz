@@ -39,7 +39,7 @@ export function floydWarshall(graph: Graph): AnimationStep[] {
 
   steps.push({
     type: "update-matrix",
-    payload: { matrix: dist, nodeLabels },
+    payload: { matrix: dist.map(row => [...row]), nodeLabels },
     descriptionForAI: "Distance matrix initialized with direct edge weights and 0s on the diagonal."
   });
   steps.push({ type: "message", message: "Initialized distance matrix from graph edges." });
@@ -103,6 +103,13 @@ export function floydWarshall(graph: Graph): AnimationStep[] {
   }
 
   steps.push({ type: "reset-colors" });
+
+  // Ensure the final matrix is always shown at the end of the main loop.
+  steps.push({
+    type: "update-matrix",
+    payload: { matrix: dist.map(row => [...row]), nodeLabels },
+    descriptionForAI: "Final shortest path distance matrix."
+  });
 
   // Check for negative cycles
   for (let i = 0; i < n; i++) {
