@@ -24,7 +24,7 @@ const features: Feature[] = [
     description: "Draw your own graphs directly on the canvas. Add nodes, connect them with weighted edges, and see algorithms run on your creations.",
     link: "/editor?mode=draw",
     linkText: "Start Drawing",
-    imageUrl: "/images/feature-interactive-canvas.png",
+    imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Person sketching a graph on a digital tablet or a vibrant abstract representation of node connections.",
     aiHint: "digital drawing"
   },
@@ -34,7 +34,7 @@ const features: Feature[] = [
     description: "Upload an image of a graph, and our AI will attempt to extract its structure, allowing you to visualize algorithms on it.",
     link: "/editor?mode=image",
     linkText: "Upload an Image",
-    imageUrl: "/images/feature-graph-from-image.png",
+    imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "Computer screen showing a complex node-based graph being analyzed by AI",
     aiHint: "node editor"
   },
@@ -44,7 +44,7 @@ const features: Feature[] = [
     description: "Instantly generate random graphs with a specified number of nodes and edge weight ranges to test algorithms on diverse structures.",
     link: "/editor?mode=random",
     linkText: "Generate a Graph",
-    imageUrl: "/images/feature-random-graph.png",
+    imageUrl: "https://placehold.co/600x400.png",
     imageAlt: "A stylized, colorful, and abstract representation of a randomly generated network or graph.",
     aiHint: "abstract network"
   }
@@ -55,7 +55,7 @@ export default function LandingPage() {
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-8rem)] text-center p-4 md:p-8 relative overflow-hidden">
       <div className="absolute inset-0 z-10">
         <Image
-          src="/images/landing-background.png"
+          src="https://placehold.co/1920x1080.png"
           alt="Abstract technological background with glowing lines or network connections."
           layout="fill"
           objectFit="cover"
