@@ -49,15 +49,20 @@ export default function AlgorithmControls() {
   const [isExtractingGraph, setIsExtractingGraph] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
   const [prevModeQueryParam, setPrevModeQueryParam] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   const animationIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isMountedRef = useRef(true);
 
   const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   const modeQueryParam = searchParams.get('mode');
   const applicationQueryParam = searchParams.get('application');
   const algorithmQueryParam = searchParams.get('algorithm') as AlgorithmType;
-
   const effectiveMode = modeQueryParam || 'draw';
 
   useEffect(() => {
@@ -483,7 +488,7 @@ export default function AlgorithmControls() {
           </Select>
         </div>
 
-        {selectedAlgorithm === 'dijkstra' && (
+        {isClient && selectedAlgorithm === 'dijkstra' && (
           <div className="space-y-2">
             <Label htmlFor="start-node">Start Node</Label>
             <Select
@@ -587,10 +592,14 @@ export default function AlgorithmControls() {
         </AlertDialog>
 
         <ContextualHelpDialog />
-
-        { (effectiveMode === 'image' || effectiveMode === 'random') && <Separator className="my-4" /> }
-        { effectiveMode === 'image' && renderImageGraphSection() }
-        { effectiveMode === 'random' && renderRandomGraphSection() }
+        
+        { isClient && (
+          <>
+            { (effectiveMode === 'image' || effectiveMode === 'random') && <Separator className="my-4" /> }
+            { effectiveMode === 'image' && renderImageGraphSection() }
+            { effectiveMode === 'random' && renderRandomGraphSection() }
+          </>
+        )}
 
       </CardContent>
     </Card>
