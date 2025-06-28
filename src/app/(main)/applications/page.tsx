@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import { ApplicationCard } from "@/components/ApplicationCard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
