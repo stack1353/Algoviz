@@ -35,14 +35,21 @@ const EDGE_WEIGHT_COLOR = "hsl(var(--secondary-foreground))";
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3.0;
 const ZOOM_STEP = 0.2;
+const DRAG_THRESHOLD = 3;
 
 
 export function GraphCanvas() {
   const { state, dispatch } = useGraph();
   const { nodes, edges, selectedNodeId, selectedEdgeId } = state;
   const svgRef = useRef<SVGSVGElement>(null);
+  
+  // State for interaction
   const [tempEdgeStartNode, setTempEdgeStartNode] = useState<Node | null>(null);
   const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [draggedNodeId, setDraggedNodeId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPos = useRef<{x: number, y: number} | null>(null);
   
   // State for Add Edge Popover
   const [isAddEdgePopoverOpen, setIsAddEdgePopoverOpen] = useState(false);
@@ -56,7 +63,7 @@ export function GraphCanvas() {
 
   const [scale, setScale] = useState(1);
 
-  const getSVGCoordinates = (event: React.MouseEvent<SVGSVGElement>): { x: number; y: number } | null => {
+  const getSVGCoordinates = (event: React.MouseEvent<SVGSVGElement | SVGElement>): { x: number; y: number } | null => {
     if (!svgRef.current) return null;
     const pt = svgRef.current.createSVGPoint();
     pt.x = event.clientX;
@@ -70,8 +77,8 @@ export function GraphCanvas() {
     return { x: svgPoint.x / scale, y: svgPoint.y / scale };
   };
 
-
   const handleCanvasClick = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (isDragging) return;
     if (event.target !== svgRef.current && (event.target as SVGGElement).dataset?.elementType !== 'graph-content') {
         return;
     }
@@ -84,7 +91,8 @@ export function GraphCanvas() {
   };
 
   const handleNodeClick = (node: Node, event: React.MouseEvent<SVGGElement>) => {
-    event.stopPropagation(); 
+    event.stopPropagation();
+    if (isDragging) return;
 
     if (!tempEdgeStartNode) {
       setTempEdgeStartNode(node);
@@ -184,12 +192,53 @@ export function GraphCanvas() {
     setIsEditEdgePopoverOpen(false);
   };
 
+  const handleNodeMouseDown = (node: Node, event: React.MouseEvent<SVGGElement>) => {
+    event.stopPropagation();
+    setDraggedNodeId(node.id);
+    const coords = getSVGCoordinates(event);
+    if (coords) {
+      dragStartPos.current = { x: coords.x, y: coords.y };
+      setDragOffset({ x: coords.x - node.x, y: coords.y - node.y });
+    }
+  };
 
   const handleMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
-    if (tempEdgeStartNode) {
-      const coords = getSVGCoordinates(event); 
-      if (coords) setMousePosition(coords);
+    const coords = getSVGCoordinates(event);
+    if (!coords) return;
+
+    if (draggedNodeId && dragStartPos.current) {
+      const dist = Math.sqrt(
+        Math.pow(coords.x - dragStartPos.current.x, 2) +
+        Math.pow(coords.y - dragStartPos.current.y, 2)
+      );
+
+      if (dist > DRAG_THRESHOLD) {
+        setIsDragging(true);
+      }
+      
+      if (isDragging) {
+        dispatch({
+          type: 'MOVE_NODE',
+          payload: {
+            nodeId: draggedNodeId,
+            x: coords.x - dragOffset.x,
+            y: coords.y - dragOffset.y,
+          },
+        });
+      }
     }
+
+    if (tempEdgeStartNode) {
+      setMousePosition(coords);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setDraggedNodeId(null);
+    dragStartPos.current = null;
+    setTimeout(() => {
+      setIsDragging(false);
+    }, 0);
   };
 
   const handleZoom = (direction: 'in' | 'out') => {
@@ -234,9 +283,11 @@ export function GraphCanvas() {
         ref={svgRef}
         width="100%"
         height="100%"
-        className="cursor-crosshair"
+        className={`cursor-crosshair ${isDragging ? 'cursor-grabbing' : ''}`}
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
         style={{ backgroundColor: SVG_BACKGROUND_COLOR }}
       >
         <defs>
@@ -338,7 +389,13 @@ export function GraphCanvas() {
           )}
 
           {nodes.map(node => (
-            <g key={node.id} onClick={(e) => handleNodeClick(node, e)} className="cursor-pointer" data-element-type="node">
+            <g 
+              key={node.id} 
+              onMouseDown={(e) => handleNodeMouseDown(node, e)}
+              onClick={(e) => handleNodeClick(node, e)}
+              className={`cursor-pointer ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+              data-element-type="node"
+            >
               <circle
                 cx={node.x}
                 cy={node.y}

@@ -56,6 +56,7 @@ type Action =
   | { type: 'ADD_EDGE'; payload: { source: string; target: string; weight: number; isDirected: boolean } }
   | { type: 'DELETE_NODE'; payload: { nodeId: string } }
   | { type: 'SET_SELECTED_NODE'; payload: string | null }
+  | { type: 'MOVE_NODE'; payload: { nodeId: string; x: number; y: number } }
   | { type: 'DELETE_EDGE'; payload: { edgeId: string } }
   | { type: 'UPDATE_EDGE_WEIGHT'; payload: { edgeId: string; newWeight: number } }
   | { type: 'SET_SELECTED_EDGE'; payload: string | null }
@@ -147,6 +148,17 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
     }
     case 'SET_SELECTED_NODE':
       return { ...state, selectedNodeId: action.payload, selectedEdgeId: null };
+    case 'MOVE_NODE': {
+      return {
+        ...state,
+        nodes: state.nodes.map(node =>
+          node.id === action.payload.nodeId
+            ? { ...node, x: action.payload.x, y: action.payload.y }
+            : node
+        ),
+        currentApplicationId: null, // User has modified the graph
+      };
+    }
     case 'SET_SELECTED_EDGE':
       return { ...state, selectedEdgeId: action.payload, selectedNodeId: null };
     case 'DELETE_EDGE':
