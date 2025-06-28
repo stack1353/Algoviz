@@ -22,12 +22,11 @@ export function InfoPanel() {
   
   const handleDownloadPdf = async () => {
     const graphCanvasElement = document.getElementById('graph-canvas-container');
-    const infoPanelContentElement = document.getElementById('info-panel-content');
     
-    if (!graphCanvasElement || !infoPanelContentElement) {
+    if (!graphCanvasElement) {
         toast({
             title: "Download Error",
-            description: "Could not find the necessary elements to generate the PDF.",
+            description: "Could not find the graph canvas element to generate the PDF.",
             variant: "destructive"
         });
         return;
@@ -41,44 +40,81 @@ export function InfoPanel() {
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 10;
-        
+        let yPos = margin;
+
         // --- Add Title ---
         doc.setFontSize(22);
-        doc.text("AlgoViz Algorithm Report", pageWidth / 2, margin + 5, { align: 'center' });
+        doc.text("AlgoViz Algorithm Report", pageWidth / 2, yPos + 5, { align: 'center' });
+        yPos += 10;
         doc.setFontSize(14);
-        doc.text(`Algorithm: ${selectedAlgorithm || 'N/A'}`, pageWidth / 2, margin + 15, { align: 'center' });
+        doc.text(`Algorithm: ${selectedAlgorithm || 'N/A'}`, pageWidth / 2, yPos + 5, { align: 'center' });
+        yPos += 15;
         
         // --- Capture Graph Canvas ---
-        const graphCanvas = await html2canvas(graphCanvasElement, {
-             backgroundColor: 'hsl(var(--card))',
-             scale: 2
-        });
-        const graphImgData = graphCanvas.toDataURL('image/png');
-        const graphImgProps = doc.getImageProperties(graphImgData);
-        const graphAspectRatio = graphImgProps.width / graphImgProps.height;
-        let graphImgWidth = pageWidth - margin * 2;
-        let graphImgHeight = graphImgWidth / graphAspectRatio;
-        
-        doc.addImage(graphImgData, 'PNG', margin, margin + 25, graphImgWidth, graphImgHeight);
-        
-        // --- Capture Info Panel Content ---
-        const infoCanvas = await html2canvas(infoPanelContentElement, {
-             backgroundColor: 'hsl(var(--card))',
-             scale: 2,
-        });
-        const infoImgData = infoCanvas.toDataURL('image/png');
-        const infoImgProps = doc.getImageProperties(infoImgData);
-        const infoAspectRatio = infoImgProps.width / infoImgProps.height;
-        let infoImgWidth = pageWidth - margin * 2;
-        let infoImgHeight = infoImgWidth / infoAspectRatio;
+        try {
+            const graphCanvas = await html2canvas(graphCanvasElement, {
+                 backgroundColor: 'hsl(var(--card))',
+                 useCORS: true, 
+                 scale: 2
+            });
+            const graphImgData = graphCanvas.toDataURL('image/png');
+            const graphImgProps = doc.getImageProperties(graphImgData);
+            const graphAspectRatio = graphImgProps.width / graphImgProps.height;
+            let graphImgWidth = pageWidth - margin * 2;
+            let graphImgHeight = graphImgWidth / graphAspectRatio;
 
-        // Check if there is space on the current page
-        const spaceLeft = pageHeight - (margin + 25 + graphImgHeight + 10);
-        if (infoImgHeight > spaceLeft) {
+            if (yPos + graphImgHeight > pageHeight - margin) {
+                doc.addPage();
+                yPos = margin;
+            }
+            
+            doc.addImage(graphImgData, 'PNG', margin, yPos, graphImgWidth, graphImgHeight);
+            yPos += graphImgHeight + 10;
+        } catch (canvasError) {
+             console.error("Failed to capture graph canvas:", canvasError);
+             toast({
+                title: "Canvas Capture Failed",
+                description: "Could not generate an image of the graph. The report will be generated without it.",
+                variant: "destructive"
+             });
+             doc.text("Error: Graph visualization could not be captured.", margin, yPos);
+             yPos += 10;
+        }
+        
+        // --- Add Info Panel Content manually ---
+        if (yPos > pageHeight - margin - 20) { // Check for space for header
             doc.addPage();
-            doc.addImage(infoImgData, 'PNG', margin, margin, infoImgWidth, infoImgHeight);
+            yPos = margin;
+        }
+        
+        doc.setFontSize(16);
+        doc.text("Algorithm Steps & Explanation", margin, yPos);
+        yPos += 8;
+
+        doc.setDrawColor(200); // light gray line
+        doc.line(margin, yPos, pageWidth - margin, yPos); // separator line
+        yPos += 8;
+
+        const allMessages = currentStepMessage ? [`Current Step: ${currentStepMessage}`, ...messages.slice().reverse()] : [...messages.slice().reverse()];
+
+        if (allMessages.length === 0) {
+            doc.setFontSize(10);
+            doc.setTextColor(150);
+            doc.text("No algorithm steps were recorded.", margin, yPos);
         } else {
-            doc.addImage(infoImgData, 'PNG', margin, margin + 25 + graphImgHeight + 5, infoImgWidth, infoImgHeight);
+            doc.setFontSize(10);
+            doc.setTextColor(40); // Dark gray text
+            
+            const textLines = doc.splitTextToSize(allMessages.map(m => `- ${m}`).join('\n'), pageWidth - margin * 2);
+
+            for(const line of textLines) {
+                 if (yPos > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                 }
+                 doc.text(line, margin, yPos);
+                 yPos += 6; // Line height
+            }
         }
         
         doc.save(`algoviz-${selectedAlgorithm}-report.pdf`);
@@ -115,12 +151,12 @@ export function InfoPanel() {
         </Button>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden flex flex-col">
-        <div id="info-panel-content" className='p-1'>
+        <div id="info-panel-content" className='p-1 h-full'>
             {messages.length === 0 && !currentStepMessage && <p className="text-sm text-muted-foreground">Run an algorithm to see its steps here.</p>}
             {currentStepMessage && (
-                <div className="mb-2 p-2 bg-accent/10 border border-accent/30 rounded-md">
-                <p className="text-sm font-semibold text-accent-foreground">Current Step:</p>
-                <p className="text-sm text-accent-foreground">{currentStepMessage}</p>
+                <div className="mb-2 p-2 bg-primary/10 border border-primary/30 rounded-md">
+                <p className="text-sm font-semibold text-primary-foreground/90">Current Step:</p>
+                <p className="text-sm text-primary-foreground/90">{currentStepMessage}</p>
                 </div>
             )}
             <ScrollArea className="h-full max-h-[calc(100%-40px)] pr-4 mt-2">
