@@ -1,4 +1,3 @@
-
 import Link from 'next/link';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -24,7 +23,7 @@ const features: Feature[] = [
     description: "Draw your own graphs directly on the canvas. Add nodes, connect them with weighted edges, and see algorithms run on your creations.",
     link: "/editor?mode=draw",
     linkText: "Start Drawing",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/feature-interactive-canvas.png",
     imageAlt: "Person sketching a graph on a digital tablet or a vibrant abstract representation of node connections.",
     aiHint: "digital drawing"
   },
@@ -34,7 +33,7 @@ const features: Feature[] = [
     description: "Upload an image of a graph, and our AI will attempt to extract its structure, allowing you to visualize algorithms on it.",
     link: "/editor?mode=image",
     linkText: "Upload an Image",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/feature-graph-from-image.png",
     imageAlt: "Computer screen showing a complex node-based graph being analyzed by AI",
     aiHint: "node editor"
   },
@@ -44,7 +43,7 @@ const features: Feature[] = [
     description: "Instantly generate random graphs with a specified number of nodes and edge weight ranges to test algorithms on diverse structures.",
     link: "/editor?mode=random",
     linkText: "Generate a Graph",
-    imageUrl: "https://placehold.co/600x400.png",
+    imageUrl: "/images/feature-random-graph.png",
     imageAlt: "A stylized, colorful, and abstract representation of a randomly generated network or graph.",
     aiHint: "abstract network"
   }
@@ -68,7 +67,7 @@ export default function LandingPage() {
       <div className="relative z-20">
         <main className="container mx-auto">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold font-headline tracking-tight text-foreground">
-            Unlock Graph Algorithms with <span className="text-primary">AlgoViz</span>
+            Unlock Graph Algorithms with <span className="animate-bg-shine bg-gradient-to-r from-primary via-accent to-primary bg-[length:200%_auto] bg-clip-text text-transparent">AlgoViz</span>
           </h1>
           <p className="mt-4 text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto">
             Interactively learn, visualize, and understand complex graph algorithms like Dijkstra's, Prim's, and Kruskal's. Create graphs, see step-by-step execution, and explore real-world uses.
