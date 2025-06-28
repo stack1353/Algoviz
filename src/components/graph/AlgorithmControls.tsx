@@ -8,6 +8,7 @@ import { Button, buttonVariants } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Play, Pause, RotateCcw, Zap, StepForward, Shuffle, Trash2, ImageUp, BrainCircuit } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -513,7 +514,19 @@ export default function AlgorithmControls() {
             step={100}
             value={[animationSpeed]}
             onValueChange={(value) => dispatch({ type: 'SET_ANIMATION_SPEED', payload: value[0] })}
+            disabled={state.skipAnimation}
           />
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="skip-animation"
+            checked={state.skipAnimation}
+            onCheckedChange={(checked) => dispatch({ type: 'SET_SKIP_ANIMATION', payload: checked as boolean })}
+          />
+          <Label htmlFor="skip-animation" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Skip to final result
+          </Label>
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -523,7 +536,7 @@ export default function AlgorithmControls() {
           >
             <Play className="mr-2 h-4 w-4" /> Run
           </Button>
-            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0 && selectedAlgorithm === "none"}>
+            <Button onClick={handleAnimationToggle} variant="outline" disabled={animationSteps.length === 0 && selectedAlgorithm === "none" || state.skipAnimation}>
             {isAnimating ? <Pause className="mr-2 h-4 w-4" /> : <StepForward className="mr-2 h-4 w-4" />}
             {isAnimating ? "Pause" : (currentStepIndex < animationSteps.length -1 && currentStepIndex !== -1 ? "Next Step" : "Play Steps")}
           </Button>

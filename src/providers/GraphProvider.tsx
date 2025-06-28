@@ -14,6 +14,7 @@ interface GraphState extends Graph {
   currentStepIndex: number;
   animationSpeed: number; // ms per step
   isAnimating: boolean;
+  skipAnimation: boolean;
   startNode: string | null; // For Dijkstra
   messages: string[];
   currentVisualizationStateForAI: string | null;
@@ -32,6 +33,7 @@ const initialState: GraphState = {
   currentStepIndex: -1,
   animationSpeed: 500,
   isAnimating: false,
+  skipAnimation: false,
   startNode: null,
   messages: [],
   currentVisualizationStateForAI: null,
@@ -63,6 +65,7 @@ type Action =
   | { type: 'ANIMATION_STEP_FORWARD' }
   | { type: 'TOGGLE_ANIMATION_PLAY_PAUSE' }
   | { type: 'SET_ANIMATION_SPEED'; payload: number }
+  | { type: 'SET_SKIP_ANIMATION'; payload: boolean }
   | { type: 'RESET_GRAPH' }
   | { type: 'RESET_ANIMATION' }
   | { type: 'ADD_MESSAGE'; payload: string }
@@ -166,7 +169,7 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       return { ...state, selectedAlgorithm: action.payload, animationSteps: [], currentStepIndex: -1, isAnimating: false, messages: [], selectedNodeId: null, selectedEdgeId: null };
     case 'SET_START_NODE':
       return { ...state, startNode: action.payload };
-    case 'RUN_ALGORITHM':
+    case 'RUN_ALGORITHM': {
       if (!state.selectedAlgorithm || state.selectedAlgorithm === "none") return state;
       let steps: AnimationStep[] = [];
       const currentGraph = { nodes: state.nodes, edges: state.edges }; 
@@ -178,7 +181,59 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       } else if (state.selectedAlgorithm === 'kruskal') {
         steps = kruskal(currentGraph);
       }
-      return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null, selectedEdgeId: null };
+
+      if (state.skipAnimation) {
+        let finalNodes = [...state.nodes];
+        let finalEdges = [...state.edges];
+        let finalMessages: string[] = [];
+        let finalVisStateAI: string | null = null;
+        const appGraphData = state.currentApplicationId ? applicationGraphs[state.currentApplicationId] : undefined;
+
+        for (const step of steps) {
+            if (step.descriptionForAI) {
+                finalVisStateAI = step.descriptionForAI;
+            }
+
+            switch (step.type) {
+                case 'highlight-node':
+                    finalNodes = finalNodes.map(n => n.id === step.nodeId ? { ...n, color: step.color || 'hsl(var(--primary))' } : n);
+                    break;
+                case 'highlight-edge':
+                    finalEdges = finalEdges.map(e => e.id === step.edgeId ? { ...e, color: step.color || 'hsl(var(--primary))' } : e);
+                    break;
+                case 'update-node-label':
+                    finalNodes = finalNodes.map(n => n.id === step.nodeId ? { ...n, label: step.label } : n);
+                    break;
+                case 'message':
+                    if(step.message) finalMessages.push(step.message);
+                    break;
+                case 'reset-colors':
+                    finalNodes = finalNodes.map(n => ({ ...n, color: undefined }));
+                    finalEdges = finalEdges.map(e => ({ ...e, color: undefined }));
+                    break;
+                case 'clear-labels':
+                    const baseLabel = (nodeId: string, appNodes?: Node[]) => {
+                        const appNode = appNodes?.find(n => n.id === nodeId);
+                        return appNode?.label || nodeId.replace('node-','N');
+                    };
+                    finalNodes = finalNodes.map(n => ({ ...n, label: baseLabel(n.id, appGraphData?.nodes) }));
+                    break;
+            }
+        }
+        return {
+            ...state,
+            nodes: finalNodes,
+            edges: finalEdges,
+            messages: finalMessages.slice().reverse(),
+            animationSteps: steps,
+            currentStepIndex: steps.length - 1,
+            isAnimating: false,
+            currentVisualizationStateForAI: finalVisStateAI || "Algorithm finished. Final state shown.",
+        };
+      } else {
+        return { ...state, animationSteps: steps, currentStepIndex: -1, isAnimating: steps.length > 0, messages: [], currentVisualizationStateForAI: null, selectedNodeId: null, selectedEdgeId: null };
+      }
+    }
     case 'ANIMATION_STEP_FORWARD':
       if (state.currentStepIndex < state.animationSteps.length - 1) {
         const nextStepIndex = state.currentStepIndex + 1;
@@ -246,6 +301,8 @@ const graphReducer = (state: GraphState, action: Action): GraphState => {
       return { ...state, isAnimating: !state.isAnimating };
     case 'SET_ANIMATION_SPEED':
       return { ...state, animationSpeed: action.payload };
+    case 'SET_SKIP_ANIMATION':
+        return { ...state, skipAnimation: action.payload };
     case 'RESET_GRAPH':
       return { 
         ...initialState,
