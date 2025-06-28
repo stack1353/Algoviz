@@ -37,17 +37,6 @@ const algorithmsData = [
     weighted: true,
     negativeWeights: true,
   },
-  {
-    name: "Floyd-Warshall",
-    type: "All-Pairs Shortest Path",
-    timeComplexity: "O(V³)",
-    spaceComplexity: "O(V²)",
-    useCases: "Finding all shortest routes in a network, transitive closure.",
-    pros: ["Conceptually simple with loops", "Works with negative edge weights"],
-    cons: ["Not efficient for sparse graphs", "Cannot handle negative weight cycles (but can detect them)"],
-    weighted: true,
-    negativeWeights: true, // It can handle them, but not cycles
-  },
 ];
 
 export function ComparisonTable() {

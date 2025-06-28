@@ -229,7 +229,7 @@ export function GraphCanvas() {
   };
 
   return (
-    <div className="w-full h-full bg-card rounded-lg shadow-md overflow-hidden relative">
+    <div id="graph-canvas-container" className="w-full h-full bg-card rounded-lg shadow-md overflow-hidden relative">
       <svg
         ref={svgRef}
         width="100%"
