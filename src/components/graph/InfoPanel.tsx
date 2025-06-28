@@ -21,12 +21,13 @@ export function InfoPanel() {
   const currentStepDescriptionAI = animationSteps[currentStepIndex]?.descriptionForAI;
   
   const handleDownloadPdf = async () => {
-    const graphCanvasElement = document.getElementById('graph-canvas-container');
+    // Specifically target the SVG element for capture, as it's more reliable with html2canvas.
+    const graphSvgElement = document.querySelector<SVGSVGElement>('#graph-canvas-container svg');
     
-    if (!graphCanvasElement) {
+    if (!graphSvgElement) {
         toast({
             title: "Download Error",
-            description: "Could not find the graph canvas element to generate the PDF.",
+            description: "Could not find the graph canvas SVG element to generate the PDF.",
             variant: "destructive"
         });
         return;
@@ -52,10 +53,10 @@ export function InfoPanel() {
         
         // --- Capture Graph Canvas ---
         try {
-            const graphCanvas = await html2canvas(graphCanvasElement, {
+            const graphCanvas = await html2canvas(graphSvgElement, {
                  backgroundColor: 'hsl(var(--card))',
                  useCORS: true, 
-                 scale: 2
+                 scale: 2 // Higher scale for better quality
             });
             const graphImgData = graphCanvas.toDataURL('image/png');
             const graphImgProps = doc.getImageProperties(graphImgData);
@@ -81,7 +82,7 @@ export function InfoPanel() {
              yPos += 10;
         }
         
-        // --- Add Info Panel Content manually ---
+        // --- Add Info Panel Content by writing text ---
         if (yPos > pageHeight - margin - 20) { // Check for space for header
             doc.addPage();
             yPos = margin;
@@ -155,7 +156,7 @@ export function InfoPanel() {
             {messages.length === 0 && !currentStepMessage && <p className="text-sm text-muted-foreground">Run an algorithm to see its steps here.</p>}
             {currentStepMessage && (
                 <div className="mb-2 p-2 bg-primary/10 border border-primary/30 rounded-md">
-                <p className="text-sm font-semibold text-primary-foreground/90">Current Step:</p>
+                <p className="text-sm font-semibold text-primary">Current Step:</p>
                 <p className="text-sm text-primary-foreground/90">{currentStepMessage}</p>
                 </div>
             )}
